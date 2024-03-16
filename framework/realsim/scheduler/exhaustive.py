@@ -403,8 +403,12 @@ class CoschedulerExhaustive(Scheduler, abc.ABC):
         self.update_ranks()
 
         # Co-location with execution half pairs
-        ll_num, ll_avg_speedup = self.deploying_exec_pairs(deploy_list, 
-                                                           ll_num,
+        # ll_num, ll_avg_speedup = self.deploying_exec_pairs(deploy_list, 
+        #                                                    ll_num,
+        #                                                    ll_avg_speedup)
+        
+        ll_num, ll_avg_speedup = self.deploying_wait_pairs(deploy_list,
+                                                           ll_num, 
                                                            ll_avg_speedup)
 
         deploy_len = len(deploy_list)
@@ -435,7 +439,10 @@ class CoschedulerExhaustive(Scheduler, abc.ABC):
         #print()
 
         # Co-location between waiting queue jobs
-        ll_num, ll_avg_speedup = self.deploying_wait_pairs(deploy_list,
+        # ll_num, ll_avg_speedup = self.deploying_wait_pairs(deploy_list,
+        #                                                    ll_num, 
+        #                                                    ll_avg_speedup)
+        ll_num, ll_avg_speedup = self.deploying_exec_pairs(deploy_list,
                                                            ll_num, 
                                                            ll_avg_speedup)
 
