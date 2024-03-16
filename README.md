@@ -1,4 +1,4 @@
-# HPC Simulator
+![HPC Simulator logo](./assets/HPCSim.png)
 
 ## Setting up the environment using conda
 
