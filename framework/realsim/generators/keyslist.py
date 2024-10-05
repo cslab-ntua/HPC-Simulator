@@ -39,6 +39,10 @@ class KeysListGenerator(AbstractGenerator[str]):
 
             jobs_set.append(job)
             
+        seed(time_ns() % (2 ** 32))
+        shuffle(jobs_set)
+        # for i, _job in enumerate(jobs_set):
+        #   _job.submit_time = i
 
         return jobs_set
 
