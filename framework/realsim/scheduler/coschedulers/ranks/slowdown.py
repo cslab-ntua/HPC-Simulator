@@ -34,7 +34,7 @@ class SlowdownRanksCoscheduler(RanksCoscheduler, ABC):
 
         # If no signatures then spread
         if co_job_sigs == []:
-            return (inf,job.max_speedup)
+            return (inf, job.max_speedup)
 
         # get average speedup for each job in host + candidate job
         speedup = list(map(lambda j: self.database.heatmap[job.job_name][j.split(":")[-1]],co_job_sigs))
