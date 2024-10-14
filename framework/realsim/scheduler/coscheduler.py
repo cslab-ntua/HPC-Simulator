@@ -54,7 +54,7 @@ class Coscheduler(Scheduler, ABC):
     def setup(self) -> None:
         pass
 
-    def coloc_condition(self, hostname: str, job: Job):
+    def coloc_condition(self, hostname: str, job: Job) -> float:
         """Condition on how to sort the hosts based on the speedup that the job
         will gain/lose. Always spread first
         """

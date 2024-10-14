@@ -13,7 +13,6 @@ from realsim.logger.logger import Logger
 import realsim.logger.logevts as evts
 
 
-
 class ComputeEngine:
     
     def __init__(self, 
@@ -34,7 +33,7 @@ class ComputeEngine:
 
         self.logger.database = self.db
         self.logger.cluster = self.cluster
-        self.logger.scheduler = scheduler
+        self.logger.scheduler = self.scheduler
 
     # Database preloaded queue setup
     def setup_preloaded_jobs(self) -> None:
@@ -254,9 +253,9 @@ class ComputeEngine:
         if min_rem_time == inf and (self.cluster.waiting_queue != [] or self.db.preloaded_queue != []):
             print()
             print(self.cluster.get_idle_cores())
-            print("PREL", self.db.preloaded_queue)
-            print("WAIT", self.cluster.waiting_queue)
-            print("EXEC", self.cluster.execution_list)
+            # print("PREL", self.db.preloaded_queue)
+            # print("WAIT", self.cluster.waiting_queue)
+            # print("EXEC", self.cluster.execution_list)
             print()
             raise RuntimeError
 
@@ -291,6 +290,7 @@ class ComputeEngine:
     def sim_step(self) -> None:
 
         deployed = False
+
 
         # Deploy to waiting queue any preloaded jobs that remain
         self.load_in_waiting_queue()

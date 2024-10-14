@@ -181,7 +181,8 @@ class Logger(object):
                 ),
                 template="seaborn"
         )
-        return fig.to_json()
+        # return fig.to_json()
+        return fig
 
     def get_jobs_utilization(self, logger):
         """Get different utilization metrics for each job in comparison to

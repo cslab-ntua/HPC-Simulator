@@ -59,18 +59,14 @@ class EASYScheduler(FIFOScheduler):
         # Get the backfilling candidates
         backfilling_jobs = deepcopy_list(self.cluster.waiting_queue[1:self.backfill_depth+1])
 
-        # Ascending sorting by their wall time
-        backfilling_jobs.sort(key=lambda b_job: b_job.wall_time)
-
+        # Scan through the rest of the jobs to see if any is fit for backfilling
         for b_job in backfilling_jobs:
 
+            # Check if it will finish before the estimated starting time
             if b_job.wall_time <= min_estimated_time:
 
+                # Check if it can fit in the spare resources of the cluster
                 if self.compact_allocation(b_job):
                     deployed = True
-
-            else:
-                # No other job is capable to backfill based on time
-                break
         
         return deployed

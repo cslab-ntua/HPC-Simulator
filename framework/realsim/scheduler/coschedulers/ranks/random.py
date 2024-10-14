@@ -10,6 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(
 )))
 
 from realsim.jobs.jobs import Job
+from realsim.jobs.utils import deepcopy_list
 from realsim.scheduler.coschedulers.ranks.ranks import RanksCoscheduler
 from realsim.cluster.host import Host
 
@@ -27,3 +28,28 @@ class RandomRanksCoscheduler(RanksCoscheduler, ABC):
 
     def coloc_condition(self, hostname: str, job: Job) -> float:
         return float(self.cluster.hosts[hostname].state == Host.IDLE)
+
+    def backfill(self) -> bool:
+
+        deployed = False
+
+        # Get the backfilling candidates
+        backfilling_jobs = deepcopy_list(self.cluster.waiting_queue[1:self.backfill_depth+1])
+
+        # Ascending sorting by their wall time
+        backfilling_jobs.sort(key=lambda b_job: b_job.wall_time)
+
+        for b_job in backfilling_jobs:
+
+            # Colocate
+            if self.colocation(b_job, self.cluster.half_socket_allocation):
+                deployed = True
+                self.after_deployment()
+            # Compact
+            # elif super().compact_allocation(b_job):
+            #     deployed = True
+            #     self.after_deployment()
+            else:
+                break
+
+        return deployed

@@ -1,6 +1,12 @@
-from .__init__ import *
+import os
+import sys
 
-from .abstract import AbstractGenerator
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__name__), "..", "..")
+))
+
+from realsim.generators import *
+from realsim.generators.abstract import AbstractGenerator
 from random import shuffle, seed
 from time import time_ns
 

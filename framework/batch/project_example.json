@@ -1,13 +1,18 @@
 {
 	"name": "Project Name",
 	"description": "Description [Optional]",
+	"cluster": {
+		"nodes": "number (int) of nodes",
+		"socket-conf": "The configuration of a sockets in each node (list of ints)"
+	},
 	"workloads": [
 		{
-			"load-manager": "Path to a pickled and loaded LoadManager instance to build jobs from",
-			"heatmap": "Using a user specified heatmap (csv format) to overload the heatmap produce by a `load-manager` or `db` instances",
+			"dir": "Path to directory of compact and coschedules",
+			"load-manager": "Path to a pickled and baked LoadManager instance to build jobs from",
 			"db": "Database url",
 			"loads-machine": "Name of machine",
 			"loads-suite": "Name of suite",
+			"heatmap": "Using a user specified heatmap (csv format) to overload the heatmap produce by a `load-manager` or `db` instances",
 			"generator": {
 				"type": "Type of generator (or a path to a python file?)",
 				"arg": "Argument (for Random the number of jobs, for Dict the name and frequency of loads and for List the path to the file containing the list)",
@@ -15,7 +20,8 @@
 					"type": "Type of the distribution or path to .py file",
 					"arg": "Argument to pass to distribution"
 				}
-			}
+			},
+			"repeat": "number of repeats for the workload"
 		]
 	},
 	"schedulers": {
