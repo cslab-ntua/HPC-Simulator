@@ -127,7 +127,7 @@ class ComputeEngine:
         spread_allocation = not (job.socket_conf == self.cluster.socket_conf)
 
         for hostname in job.assigned_hosts:
-            for co_job_signature in self.cluster.hosts[hostname].jobs.keys():
+            for co_job_signature in list(self.cluster.hosts[hostname].jobs.keys()):
 
                 # Shouldn't check with ourselves
                 if job.get_signature() == co_job_signature:
@@ -220,7 +220,7 @@ class ComputeEngine:
             self.cluster.hosts[hostname].jobs.pop(job.get_signature())
             
             # Change state of host if nothing is executing
-            if len(self.cluster.hosts[hostname].jobs.keys()) == 0:
+            if len(list(self.cluster.hosts[hostname].jobs.keys())) == 0:
                 self.cluster.hosts[hostname].state = Host.IDLE
  
         # Log the event

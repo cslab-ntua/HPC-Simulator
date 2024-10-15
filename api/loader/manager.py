@@ -83,7 +83,7 @@ class LoadManager:
 
                 # Remove unecessary co-loads
                 unecessary_coloads: list[str] = list()
-                for co_name in copy_load.coscheduled_timelogs.keys():
+                for co_name in list(copy_load.coscheduled_timelogs.keys()):
                     if co_name not in keys:
                         #copy_load.coscheduled_timelogs.pop(co_name)
                         unecessary_coloads.append(co_name)
@@ -123,7 +123,7 @@ class LoadManager:
         # or update our loads' coloads
         for other_name, other_load in other_lm:
             # If it doesn't exist then add new load
-            if other_name not in new_lm.loads.keys():
+            if other_name not in list(new_lm.loads.keys()):
                 new_lm.loads[other_name] = other_load.deepcopy()
             else:
                 # The load exists in both load managers
@@ -670,7 +670,7 @@ class LoadManager:
         ]
 
         data: list[list] = list()
-        load_names = sorted(self.loads.keys())
+        load_names = sorted(list(self.loads.keys()))
 
         for i, name in enumerate(load_names):
 
@@ -680,7 +680,7 @@ class LoadManager:
 
                 co_load = self.loads[co_name]
             
-                if co_name not in load.coscheduled_timelogs.keys():
+                if co_name not in list(load.coscheduled_timelogs.keys()):
                     co_A_B = None
                     co_B_A = None
                 else:

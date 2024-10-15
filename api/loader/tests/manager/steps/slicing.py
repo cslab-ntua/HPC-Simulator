@@ -41,7 +41,7 @@ def when_impl(context):
 
             # If no name was inside the first load manager then reutrn the
             # original load manager
-            for name in context.lm.loads.keys():
+            for name in list(context.lm.loads.keys()):
                 res &= (name in sliced_names)
                 if not res:
                     print(f"ERROR: {name} not in sliced load manager")
