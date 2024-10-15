@@ -525,7 +525,7 @@ class LoadManager:
                 "machine": self.machine,
                 "suite": self.suite,
                 "loads": [
-                    load.to_json() for load in self.loads.values()
+                    load.to_json() for load in list(self.loads.values())
                 ]
         }
 

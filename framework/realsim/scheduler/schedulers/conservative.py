@@ -101,7 +101,7 @@ class ConservativeScheduler(FIFOScheduler):
         execution_list = deepcopy_list(self.cluster.execution_list)
 
         # Get all the idle hosts
-        idle_hosts = [host for host in self.cluster.hosts.values() if host.state == Host.IDLE]
+        idle_hosts = [host for host in list(self.cluster.hosts.values()) if host.state == Host.IDLE]
 
         reserves = self.find_reservation([], 0, blocked_job, idle_hosts, waiting_queue, execution_list)
 

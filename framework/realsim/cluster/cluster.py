@@ -64,9 +64,6 @@ class Cluster:
 
     def get_idle_cores(self) -> int:
         return self.idle_cores
-        # _sum = 0
-        # for host in self.hosts.values():
-        #     _sum += host.get_idle_cores_num()
 
         # return _sum
 
