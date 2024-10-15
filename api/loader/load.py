@@ -161,7 +161,7 @@ class Load:
         new_load.mpi_time_norm = self.mpi_time_norm
 
         # Deep copy of MPI attributes' dicts
-        for event in self.mpi_noc.keys():
+        for event in list(self.mpi_noc.keys()):
             new_load.mpi_noc[event] = self.mpi_noc[event]
             new_load.mpi_atime[event] = self.mpi_atime[event]
             new_load.mpi_abytes[event] = self.mpi_abytes[event]

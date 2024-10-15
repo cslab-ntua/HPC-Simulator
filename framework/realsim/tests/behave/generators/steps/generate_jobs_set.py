@@ -57,7 +57,7 @@ def given_dict_impl(context):
     jobs_set = generator.generate_jobs_set(query)
 
     for job in jobs_set:
-        if job.load.full_load_name in res_dict.keys():
+        if job.load.full_load_name in list(res_dict.keys()):
             res_dict[job.load.full_load_name] += 1
 
     context.test_result = (res_dict == query)

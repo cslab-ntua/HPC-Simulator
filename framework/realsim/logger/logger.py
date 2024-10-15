@@ -125,7 +125,7 @@ class Logger(object):
     def get_gantt_representation(self):
 
         # Create the color palette for each job
-        num_of_jobs = len(self.job_events.keys())
+        num_of_jobs = len(list(self.job_events.keys()))
         jcolors = colors.sample_colorscale(self.scale, [n/(num_of_jobs - 1) for n in range(num_of_jobs)])
 
         # Create data for figure
@@ -262,14 +262,14 @@ class Logger(object):
         """Animate the different jobs allocating cores in a cluster
         """
 
-        hosts = list(sorted(self.cluster.hosts.keys(), key=lambda name: int(name.replace("host", ""))))
+        hosts = sorted(list(self.cluster.hosts.keys()), key=lambda name: int(name.replace("host", "")))
         num_of_hosts = len(hosts)
         ppn = sum(self.cluster.socket_conf)
         cores = list(range(1, ppn+1))
         core_ticks = [x for x in cores]
         core_ticknames = [f"Core {x}" for x in cores]
 
-        num_of_jobs = len(self.job_events.keys())
+        num_of_jobs = len(list(self.job_events.keys()))
         jcolors = colors.sample_colorscale(self.scale, [n/(num_of_jobs - 1) for n in range(num_of_jobs)])
 
         frames = []
