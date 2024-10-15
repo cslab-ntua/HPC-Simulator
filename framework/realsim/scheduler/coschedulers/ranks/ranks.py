@@ -123,7 +123,7 @@ class RanksCoscheduler(Coscheduler, ABC):
         blocked_job = self.cluster.waiting_queue[0]
 
         # Get all the idle hosts
-        idle_hosts = [host for host in self.cluster.hosts.values() if host.state == Host.IDLE]
+        idle_hosts = [host for host in list(self.cluster.hosts.values()) if host.state == Host.IDLE]
 
         # Find the minimum estimated start time of the job
 
