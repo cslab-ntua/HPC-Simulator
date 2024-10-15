@@ -13,7 +13,7 @@
 				"type": "Random Generator",
 				"arg": 100
 			},
-			"repeat": 10
+			"repeat": 2
 		}
 	],
 	"schedulers": {
@@ -27,6 +27,7 @@
 	"actions": [
 		{
 			"type": "export-csv",
+            "output_dir": "/home/nikos/Desktop/ipdps2025/dummy_workloads",
 			"workload": "all",
 			"scheduler": "all"
 		}

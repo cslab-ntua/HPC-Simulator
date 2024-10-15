@@ -83,16 +83,18 @@ class BatchCreator:
         
         # Load the configuration file
         with open(path_to_script, "r") as fd:
-            data = json_loads(fd.read())
-            
-            if "name" not in data or "cluster" not in data or "workloads" not in data or "schedulers" not in data:
+            self.config = json_loads(fd.read())
+           
+            sanity_entries = ["name", "cluster", "workloads", "schedulers", "actions"]
+
+            if list(filter(lambda x: x not in self.config, sanity_entries)):
                 raise RuntimeError("The configuration file is not properly designed")
 
-            self.__project_name = data["name"]
-            self.__project_cluster = data["cluster"]
-            self.__project_workloads = data["workloads"]
-            self.__project_schedulers = data["schedulers"]
-            self.__project_actions = data["actions"] if "actions" in data else list()
+            self.__project_name = self.config["name"]
+            self.__project_cluster = self.config["cluster"]
+            self.__project_workloads = self.config["workloads"]
+            self.__project_schedulers = self.config["schedulers"]
+            self.__project_actions = self.config["actions"] if "actions" in self.config else list()
 
     @staticmethod
     def import_module(path):
@@ -268,6 +270,6 @@ class BatchCreator:
                 compengine = ComputeEngine(database, cluster, scheduler, logger)
                 compengine.setup_preloaded_jobs()
                 
-                self.ranks.append((idx, database, cluster, scheduler, logger, compengine))
+                self.ranks.append((idx, database, cluster, scheduler, logger, compengine, self.config))
 
         print("Processed ranks")

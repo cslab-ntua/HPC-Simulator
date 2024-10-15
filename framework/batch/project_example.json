@@ -33,6 +33,7 @@
 	"actions": [
 		{
 			"type": "export-csv",
+            "output_dir": "path",
 			"workload": "all",
 			"scheduler": "all"
 		},
