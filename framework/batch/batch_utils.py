@@ -27,6 +27,7 @@ from realsim.generators.abstract import AbstractGenerator
 from realsim.generators.random import RandomGenerator
 from realsim.generators.keysdict import KeysDictGenerator
 from realsim.generators.keyslist import KeysListGenerator
+from realsim.generators.shufflekeyslist import ShuffleKeysListGenerator
 
 # Distributions
 from realsim.generators.distribution.idistribution import IDistribution
@@ -67,7 +68,8 @@ class BatchCreator:
         self.__impl_generators = {
             RandomGenerator.name: RandomGenerator,
             KeysDictGenerator.name: KeysDictGenerator,
-            KeysListGenerator.name: KeysListGenerator
+            KeysListGenerator.name: KeysListGenerator,
+            ShuffleKeysListGenerator.name: ShuffleKeysListGenerator
         }
 
         # Ready to use schedulers implementing the Distribution interface
@@ -184,7 +186,7 @@ class BatchCreator:
                 for _ in range(repeat):
 
                     # Generate the workload
-                    if gen_type == "List Generator":
+                    if gen_type in ["List Generator","Shuffle List Generator"]:
                         with open(gen_arg, 'r') as _f:
                             gen_data = _f.read()
                         gen_workload = gen_inst.generate_jobs_set(gen_data)

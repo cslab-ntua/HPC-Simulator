@@ -7,7 +7,6 @@ sys.path.append(os.path.abspath(
 
 from realsim.generators import *
 from realsim.generators.abstract import AbstractGenerator
-from random import shuffle, seed
 from time import time_ns
 
 class KeysListGenerator(AbstractGenerator[str]):
@@ -38,11 +37,6 @@ class KeysListGenerator(AbstractGenerator[str]):
             job.wall_time = float(fields[8])
 
             jobs_set.append(job)
-            
-        seed(time_ns() % (2 ** 32))
-        shuffle(jobs_set)
-        # for i, _job in enumerate(jobs_set):
-        #   _job.submit_time = i
 
         return jobs_set
 
