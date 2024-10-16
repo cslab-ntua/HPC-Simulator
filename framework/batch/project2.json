@@ -10,8 +10,8 @@
 			"loads-machine": "aris.compute",
 			"loads-suite": "NAS",
 			"generator": {
-				"type": "Random Generator",
-				"arg": 10
+				"type": "List Generator",
+				"arg": "/home/nikos/Desktop/ipdps2025/thanos/workloads/input/static_aris_x10/10_90/simulation"
 			},
 			"repeat": 2
 		}
