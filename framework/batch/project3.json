@@ -1,0 +1,35 @@
+{
+	"name": "Example",
+	"cluster": {
+		"nodes": 420,
+		"socket-conf": [10, 10]
+	},
+	"workloads": [
+		{
+            "db": "mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net",
+			"loads-machine": "aris.compute",
+			"loads-suite": "NAS",
+			"generator": {
+				"type": "Shuffle List Generator",
+				"arg": "/home/nikos/Desktop/ipdps2025/thanos/workloads/input/static_aris_x10/10_90/simulation"
+			},
+			"repeat": 2
+		}
+	],
+	"schedulers": {
+		"default": "FIFO Scheduler",
+		"others": [
+			"EASY Scheduler",
+			"Conservative Scheduler",
+			"Random Ranks Co-Scheduler"
+		]
+	},
+	"actions": [
+		{
+			"type": "export-csv",
+                        "output_dir": "/home/nikos/Desktop/ipdps2025/dummy_workloads",
+			"workload": "all",
+			"scheduler": "all"
+		}
+	]
+}
