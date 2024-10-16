@@ -187,8 +187,9 @@ class BatchCreator:
                     if gen_type == "List Generator":
                         with open(gen_arg, 'r') as _f:
                             gen_data = _f.read()
-
-                    gen_workload = gen_inst.generate_jobs_set(gen_data)
+                        gen_workload = gen_inst.generate_jobs_set(gen_data)
+                    else:
+                        gen_workload = gen_inst.generate_jobs_set(gen_arg)
 
                     # Check if a transformer distribution is provided by the user
                     if "distribution" in generator:
