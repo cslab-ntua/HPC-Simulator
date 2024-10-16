@@ -7,10 +7,12 @@ sys.path.append(os.path.abspath(
 
 from realsim.generators import *
 from realsim.generators.abstract import AbstractGenerator
+from random import shuffle, seed
+from time import time_ns
 
-class KeysListGenerator(AbstractGenerator[str]):
+class ShuffleKeysListGenerator(AbstractGenerator[str]):
 
-    name = "List Generator"
+    name = "Shuffle List Generator"
     description = "Generate jobs based on the list of names given by the user"
 
     def __init__(self, load_manager):
@@ -36,5 +38,15 @@ class KeysListGenerator(AbstractGenerator[str]):
             job.wall_time = float(fields[8])
 
             jobs_set.append(job)
+
+        # keep submit times to bring the back after shuffling
+        submission_times = list(map(lambda j: j.submit_time, jobs_set))
+
+        seed(time_ns() % (2 ** 32))
+        shuffle(jobs_set)
+
+        # assign initial submit times to the shuffled list
+        for i, job in enumerate(jobs_set):
+            job.submit_time = submission_times[i]
 
         return jobs_set
