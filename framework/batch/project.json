@@ -1,17 +1,17 @@
 {
 	"name": "Example",
-	"cluster": {
-		"nodes": 420,
-		"socket-conf": [10, 10]
-	},
 	"workloads": [
 		{
 			"db": "mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net",
-			"loads-machine": "aris.compute",
+			"loads-machine": "remake-g5k.nancy.grvingt",
 			"loads-suite": "NAS",
 			"generator": {
 				"type": "Random Generator",
-				"arg": 100
+				"arg": 300
+			},
+			"cluster": {
+				"nodes": 8,
+				"socket-conf": [16, 16]
 			},
 			"repeat": 10
 		}
@@ -24,11 +24,15 @@
 			"Random Ranks Co-Scheduler"
 		]
 	},
-	"actions": [
-		{
-			"type": "export-csv",
-			"workload": "all",
-			"scheduler": "all"
+	"actions": {
+		"get_gantt_representation": {
+			"workloads": "all",
+			"schedulers": "all"
+		},
+		"get_workload": {
+			"workloads": "all",
+			"schedulers": "all"
 		}
-	]
+	}
+
 }

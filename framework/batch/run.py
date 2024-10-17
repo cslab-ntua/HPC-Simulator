@@ -1,10 +1,13 @@
 from mpi4py import MPI
 import os
 import sys
+import inspect
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
+
+from run_utils import simulation
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -19,28 +22,14 @@ if rank == 0:
 
     print("Sent pickled objects")
 
-    idx, database, cluster, scheduler, logger, compengine = batch_creator.ranks[0]
+    # Execute the simulation
+    simulation(batch_creator.ranks[0])
 
-    cluster.setup()
-    scheduler.setup()
-    logger.setup()
-
-    while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
-        compengine.sim_step()
-
-    #logger.get_gantt_representation().show()
     print(f"Rank{rank} finished")
 
 else:
 
-    idx, database, cluster, scheduler, logger, compengine = comm.recv(source=0, tag=22)
+    # Execute the simulation
+    simulation(comm.recv(source=0, tag=22))
 
-    cluster.setup()
-    scheduler.setup()
-    logger.setup()
-
-    while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
-        compengine.sim_step()
-
-    #logger.get_gantt_representation().show()
     print(f"Rank{rank} finished")

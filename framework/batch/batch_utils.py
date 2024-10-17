@@ -85,14 +85,13 @@ class BatchCreator:
         with open(path_to_script, "r") as fd:
             data = json_loads(fd.read())
             
-            if "name" not in data or "cluster" not in data or "workloads" not in data or "schedulers" not in data:
+            if "name" not in data or "workloads" not in data or "schedulers" not in data:
                 raise RuntimeError("The configuration file is not properly designed")
 
             self.__project_name = data["name"]
-            self.__project_cluster = data["cluster"]
             self.__project_workloads = data["workloads"]
             self.__project_schedulers = data["schedulers"]
-            self.__project_actions = data["actions"] if "actions" in data else list()
+            self.__project_actions = data["actions"] if "actions" in data else dict()
 
     @staticmethod
     def import_module(path):
@@ -110,7 +109,7 @@ class BatchCreator:
 
         return workloads_num * (1 + len(self.__project_schedulers["others"]))
 
-    def process_workloads(self):
+    def process_workloads(self) -> None:
 
         # Process the workloads
         self.__workloads = list()
@@ -209,7 +208,9 @@ class BatchCreator:
                         distr_inst = distr_cls()
                         distr_inst.apply_distribution(gen_workload, time_step=distr_arg)
 
-                    self.__workloads.append((gen_workload, heatmap))
+                    nodes = int(workload["cluster"]["nodes"])
+                    socket_conf = tuple(workload["cluster"]["socket-conf"])
+                    self.__workloads.append((gen_workload, heatmap, nodes, socket_conf))
 
             else:
                 raise RuntimeError("A generator was not provided")
@@ -240,13 +241,61 @@ class BatchCreator:
 
             self.__schedulers.append(sched_cls)
 
+    def process_actions(self) -> None:
+        """
+        The structure of self.__actions
+        actions = {
+            workload0 = {
+                scheduler0 = [],
+                scheduler1 = [],
+                ..
+                schedulerM = []
+            },
+            ..
+            workloadN = {
+                scheduler0 = []
+                scheduler1 = []
+                ..
+                schedulerM = []
+            }
+        }
+        """
+        self.__actions = dict()
+        for i in range(len(self.__workloads)):
+            workload_dict = dict()
+            for sched_name in [self.__project_schedulers["default"]] + self.__project_schedulers["others"]:
+                workload_dict.update({sched_name: []})
+            self.__actions.update({i: workload_dict})
+
+        for action in self.__project_actions:
+            action_workloads = self.__project_actions[action]["workloads"]
+            action_schedulers = self.__project_actions[action]["schedulers"]
+
+            if action_workloads == "all":
+                for workload_dict in self.__actions.values():
+                    if action_schedulers == "all":
+                        for sched_dict in workload_dict.values():
+                            sched_dict.append(action)
+                    else:
+                        for sched_name in action_schedulers:
+                            workload_dict[sched_name].append(action)
+            else:
+                for i in action_workloads:
+                    if action_schedulers == "all":
+                        for sched_dict in self.__actions[i].values():
+                            sched_dict.append(action)
+                    else:
+                        for sched_name in action_schedulers:
+                            self.__actions[i][sched_name].append(action)
+
     def create_ranks(self) -> None:
         self.process_workloads()
         self.process_schedulers()
+        self.process_actions()
 
         # Create the ranks
         self.ranks = list()
-        for idx, [workload, heatmap] in enumerate(self.__workloads):
+        for idx, [workload, heatmap, nodes, socket_conf] in enumerate(self.__workloads):
             for sched_cls in self.__schedulers:
 
                 # Create a database instance
@@ -254,8 +303,6 @@ class BatchCreator:
                 database.setup()
 
                 # Create a cluster instance
-                nodes = self.__project_cluster["nodes"]
-                socket_conf = tuple(self.__project_cluster["socket-conf"])
                 cluster = Cluster(nodes, socket_conf)
 
                 # Create a scheduler instance
@@ -267,7 +314,10 @@ class BatchCreator:
                 # Create a compute engine instance
                 compengine = ComputeEngine(database, cluster, scheduler, logger)
                 compengine.setup_preloaded_jobs()
+
+                # Set actions for this simulation
+                actions = self.__actions[idx][sched_cls.name]
                 
-                self.ranks.append((idx, database, cluster, scheduler, logger, compengine))
+                self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions))
 
         print("Processed ranks")

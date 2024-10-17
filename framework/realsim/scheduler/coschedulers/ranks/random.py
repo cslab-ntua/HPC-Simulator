@@ -24,7 +24,7 @@ class RandomRanksCoscheduler(RanksCoscheduler, ABC):
     def waiting_queue_reorder(self, job: Job) -> float:
         # seed(time_ns() % (2 ** 32))
         # return float(randint(len(self.cluster.waiting_queue)))
-	    return 1.0
+	    return job.num_of_processes
 
     def coloc_condition(self, hostname: str, job: Job) -> float:
         return float(self.cluster.hosts[hostname].state == Host.IDLE)

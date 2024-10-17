@@ -1,10 +1,6 @@
 {
 	"name": "Project Name",
 	"description": "Description [Optional]",
-	"cluster": {
-		"nodes": "number (int) of nodes",
-		"socket-conf": "The configuration of a sockets in each node (list of ints)"
-	},
 	"workloads": [
 		{
 			"dir": "Path to directory of compact and coschedules",
@@ -21,6 +17,10 @@
 					"arg": "Argument to pass to distribution"
 				}
 			},
+			"cluster": {
+				"nodes": "number (int) of nodes",
+				"socket-conf": "The configuration of a sockets in each node (list of ints)"
+			},
 			"repeat": "number of repeats for the workload"
 		]
 	},
@@ -30,16 +30,14 @@
 			"names or paths to other scheduling algorithms"
 		]
 	},
-	"actions": [
-		{
-			"type": "export-csv",
-			"workload": "all",
-			"scheduler": "all"
+	"actions": {
+		"get_gantt_representation": {
+			"workloads": "all or list",
+			"schedulers": "all or list"
 		},
-		{
-			"type": "export-gantt",
-			"workload": 1,
-			"scheduler": "EASY Scheduler"
+		"get_workload": {
+			"workloads": "all or list",
+			"schedulers": "all or list"
 		}
-	]
+	}
 }
