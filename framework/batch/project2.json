@@ -22,12 +22,13 @@
 			"EASY Scheduler",
 			"Conservative Scheduler",
 			"Random Ranks Co-Scheduler"
-		]
+		],
+        "backfill_enabled": true
 	},
 	"actions": [
 		{
 			"type": "export-csv",
-                        "output_dir": "/home/nikos/Desktop/ipdps2025/dummy_workloads",
+            "output_dir": "/home/nikos/Desktop/ipdps2025/dummy_workloads",
 			"workload": "all",
 			"scheduler": "all"
 		}
