@@ -269,6 +269,7 @@ class BatchCreator:
 
                 # Create a scheduler instance
                 scheduler = sched_cls()
+                scheduler.backfill_enabled = self.config["schedulers"]["backfill_enabled"]
 
                 # Create a logger instance
                 logger = Logger(debug=False)
