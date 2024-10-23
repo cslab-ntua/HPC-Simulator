@@ -1,13 +1,10 @@
-from mpi4py import MPI
 import os
 import sys
+import multiprocessing as mp
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
-
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
 
 def run_sim(input_data):
 
@@ -20,35 +17,29 @@ def run_sim(input_data):
     while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
         compengine.sim_step()
 
-    #logger.get_gantt_representation().show()
-
     # Handle CSV action
     for action in config["actions"]:
         print(action)
         if action["type"] == "export-csv":
-            _csv = os.path.join(action["output_dir"], f'{rank}_{scheduler.name}.csv')
+            _csv = os.path.join(action["output_dir"], f'{idx}_{scheduler.name}.csv')
             os.makedirs(action["output_dir"], exist_ok=True)
-            with open (_csv,'w') as _f:
+            with open(_csv, 'w') as _f:
                 _f.write(logger.get_workload())
 
-    print(f"Rank{rank} finished")
+    print(f"Process {idx} finished")
 
 
+def worker(input_data):
+    run_sim(input_data)
 
-if rank == 0:
+
+if __name__ == "__main__":
     from batch.batch_utils import BatchCreator
     batch_creator = BatchCreator(sys.argv[1])
     batch_creator.create_ranks()
 
-    for i, sim_batch in enumerate(batch_creator.ranks[1:]):
-        comm.send(sim_batch, dest=i+1, tag=22)
+    # Use multiprocessing pool to parallelize the simulation execution
+    with mp.Pool(processes=mp.cpu_count()) as pool:
+        pool.map(worker, batch_creator.ranks)
 
-    print("Sent pickled objects")
-
-    input_data = batch_creator.ranks[0]
-    run_sim(input_data)
-
-
-else:
-    input_data = comm.recv(source=0, tag=22)
-    run_sim(input_data)
+    print("Simulation batches sent to workers.")
