@@ -25,6 +25,7 @@ from realsim.database import Database
 # Generators
 from realsim.generators.abstract import AbstractGenerator
 from realsim.generators.random import RandomGenerator
+from realsim.generators.randomfromlist import RandomFromListGenerator
 from realsim.generators.keysdict import KeysDictGenerator
 from realsim.generators.keyslist import KeysListGenerator
 from realsim.generators.shufflekeyslist import ShuffleKeysListGenerator
@@ -67,6 +68,7 @@ class BatchCreator:
         # Ready to use generators implementing the AbstractGenerator interface
         self.__impl_generators = {
             RandomGenerator.name: RandomGenerator,
+            RandomFromListGenerator.name: RandomFromListGenerator,
             KeysDictGenerator.name: KeysDictGenerator,
             KeysListGenerator.name: KeysListGenerator,
             ShuffleKeysListGenerator.name: ShuffleKeysListGenerator
@@ -190,6 +192,12 @@ class BatchCreator:
                         with open(gen_arg, 'r') as _f:
                             gen_data = _f.read()
                         gen_workload = gen_inst.generate_jobs_set(gen_data)
+
+                    elif gen_type in ["Random From List Generator"]:
+                        with open(gen_arg[1], 'r') as _f:
+                            gen_data = _f.read()
+                        gen_workload = gen_inst.generate_jobs_set([gen_arg[0], gen_data])
+
                     else:
                         gen_workload = gen_inst.generate_jobs_set(gen_arg)
 

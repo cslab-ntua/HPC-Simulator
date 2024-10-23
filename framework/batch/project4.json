@@ -10,8 +10,8 @@
 			"loads-machine": "marconi",
 			"loads-suite": "NAS",
 			"generator": {
-				"type": "Random Generator",
-				"arg": 100
+				"type": "Random From List Generator",
+				"arg": [10, "/home/nikos/Desktop/ipdps2025/sim/workloads/heatmap/static_marconi_x10/pool_0"]
 			},
 			"repeat": 2
 		}
