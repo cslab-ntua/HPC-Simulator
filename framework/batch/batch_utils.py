@@ -53,6 +53,7 @@ from realsim.logger.logger import Logger
 
 # ComputeEngine
 from realsim.compengine import ComputeEngine
+from realsim.par_compengine import ParallelComputeEngine
 
 
 class BatchCreator:
@@ -259,7 +260,10 @@ class BatchCreator:
                 schedulerM = []
             }
         }
+        The structure of self.__extra_features is a list of (arg: str, val: T) tuples
+        self.__extra_features = [(arg0, val0), (arg1, val1), ...]
         """
+        # Define __actions
         self.__actions = dict()
         for i in range(len(self.__workloads)):
             workload_dict = dict()
@@ -267,9 +271,19 @@ class BatchCreator:
                 workload_dict.update({sched_name: []})
             self.__actions.update({i: workload_dict})
 
+        # Define __extra_features
+        self.__extra_features: list[tuple] = list()
+
         for action in self.__project_actions:
             action_workloads = self.__project_actions[action]["workloads"]
             action_schedulers = self.__project_actions[action]["schedulers"]
+
+            action_extra_features = [(arg, val) 
+                                     for arg, val in self.__project_actions[action].items() 
+                                     if arg not in ["workloads", "schedulers"]]
+            # Simple implementation is to overwrite an argument with the latest
+            # value provided in the project file
+            self.__extra_features.extend(action_extra_features)
 
             if action_workloads == "all":
                 for workload_dict in self.__actions.values():
@@ -307,6 +321,7 @@ class BatchCreator:
 
                 # Create a scheduler instance
                 scheduler = sched_cls()
+                scheduler.backfill_enabled = self.__project_schedulers["backfill_enabled"]
 
                 # Create a logger instance
                 logger = Logger(debug=False)
@@ -314,10 +329,12 @@ class BatchCreator:
                 # Create a compute engine instance
                 compengine = ComputeEngine(database, cluster, scheduler, logger)
                 compengine.setup_preloaded_jobs()
+                # compengine = ParallelComputeEngine().set_db(database).set_cluster(cluster).set_scheduler(scheduler).set_logger(logger).setup()
+                # compengine.setup_preloaded_jobs()
 
                 # Set actions for this simulation
                 actions = self.__actions[idx][sched_cls.name]
                 
-                self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions))
+                self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
 
         print("Processed ranks")

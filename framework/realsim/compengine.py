@@ -223,10 +223,16 @@ class ComputeEngine:
         # Log the event
         self.logger.log(evts.JobFinish, msg=f"{job.get_signature()}", job=job)
 
+
     # Simulation loop computations
     def goto_next_sim_state(self) -> None:
 
-        # print("1) ", self.cluster.execution_list)
+        #NOTE: consider adding multithreading to
+        # 1) Job calculation for remaining time (reminder: the number of resources 
+        # also constrain the number of executing jobs, so it might not provide much)
+        # 2) Finding the minimum remaining execution time
+        # 3) Finding the minimum showup time in the preloaded queue (this is a more preferrable action
+        # at least in the beginning of a simulation)
 
         # Recalculate the remaining time of jobs
         for job in self.cluster.execution_list:
@@ -270,6 +276,10 @@ class ComputeEngine:
 
         # print("2) ", min_rem_time)
 
+        #INFO: consider multithreading the deletion of jobs
+        #WARN: pay attention to how the jobs are deleted from the host. 
+        # Dictionary access/deletion might not be thread safe
+
         # Remove/clean any jobs that finished execution
         for job in self.cluster.execution_list:
 
@@ -283,9 +293,6 @@ class ComputeEngine:
 
         # Assign new execution list to cluster
         self.cluster.execution_list = execution_list
-
-        # print("3) ", self.cluster.execution_list)
-        # print()
 
     def sim_step(self) -> None:
 

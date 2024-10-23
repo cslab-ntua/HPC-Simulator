@@ -22,9 +22,23 @@ class RandomRanksCoscheduler(RanksCoscheduler, ABC):
     to classic scheduling algorithms"""
 
     def waiting_queue_reorder(self, job: Job) -> float:
-        # seed(time_ns() % (2 ** 32))
-        # return float(randint(len(self.cluster.waiting_queue)))
-	    return job.num_of_processes
+        # The job that is closer to cover the gaps is more preferrable
+        sys_free_cores = self.cluster.get_idle_cores()
+        if sys_free_cores > 0:
+            diff = sys_free_cores - job.num_of_processes
+            if diff > 0:
+                factor0 = 1 - (diff/sys_free_cores)
+            elif diff == 0:
+                factor0 = 1
+            else:
+                factor0 = -1
+        else:
+            factor0 = 1
+
+        factor1 = ((job.job_id + 1) / len(self.cluster.waiting_queue))
+
+        return factor0 / factor1
+	    #return job.num_of_processes
 
     def coloc_condition(self, hostname: str, job: Job) -> float:
         return float(self.cluster.hosts[hostname].state == Host.IDLE)
@@ -42,7 +56,10 @@ class RandomRanksCoscheduler(RanksCoscheduler, ABC):
         for b_job in backfilling_jobs:
 
             # Colocate
-            if self.colocation(b_job, self.cluster.half_socket_allocation):
+            #if self.allocation(b_job, self.cluster.quarter_socket_allocation):
+            #    deployed = True
+            #    self.after_deployment()
+            if self.allocation(b_job, self.cluster.half_socket_allocation):
                 deployed = True
                 self.after_deployment()
             # Compact

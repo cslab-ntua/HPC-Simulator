@@ -70,7 +70,8 @@ class RanksCoscheduler(Coscheduler, ABC):
         self.update_ranks()
 
     def after_deployment(self, *args):
-        self.update_ranks()
+        #self.update_ranks()
+        pass
 
     def compact_allocation(self, job: Job) -> bool:
 
@@ -86,9 +87,9 @@ class RanksCoscheduler(Coscheduler, ABC):
         deployed = False
 
         # Update the rank of each job before scheduling them
-        self.update_ranks()
+        # self.update_ranks()
 
-        waiting_queue = deepcopy_list(self.cluster.waiting_queue)
+        waiting_queue = deepcopy_list(self.cluster.waiting_queue[:self.queue_depth])
         waiting_queue.sort(key=lambda job: self.waiting_queue_reorder(job),
                            reverse=True)
 
@@ -98,7 +99,7 @@ class RanksCoscheduler(Coscheduler, ABC):
             job = self.pop(waiting_queue)
 
             # Colocate
-            if self.colocation(job, self.cluster.half_socket_allocation):
+            if self.allocation(job, self.cluster.half_socket_allocation):
                 deployed = True
                 self.after_deployment()
             # Compact
@@ -156,7 +157,7 @@ class RanksCoscheduler(Coscheduler, ABC):
             if b_job.wall_time <= min_estimated_time:
 
                 # Colocate
-                if self.colocation(b_job, self.cluster.half_socket_allocation):
+                if self.allocation(b_job, self.cluster.half_socket_allocation):
                     deployed = True
                     self.after_deployment()
                 # Compact

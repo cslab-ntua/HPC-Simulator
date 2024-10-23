@@ -25,6 +25,7 @@ class Cluster:
         # Fast socket allocation schemes
         self.full_socket_allocation = socket_conf
         self.half_socket_allocation = tuple([int(x/2) for x in socket_conf])
+        self.quarter_socket_allocation = tuple([int(x/4) for x in socket_conf])
 
         # Hosts where the hostname is a the string 'host' followed by a number
         _cores_per_node = sum(socket_conf)

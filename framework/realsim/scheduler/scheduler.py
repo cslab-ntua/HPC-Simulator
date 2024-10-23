@@ -43,6 +43,7 @@ class Scheduler(ABC):
         self.compeng: ComputeEngine
 
         # Variable to test whether a backfill policy is enabled
+        self.queue_depth = None # None for the whole waiting queue
         self.backfill_enabled: bool = backfill_enabled
         self.backfill_depth: int = 100
         self.aging_enabled: bool = False
@@ -77,27 +78,35 @@ class Scheduler(ABC):
         else:
             return {}
 
-    def compact_allocation(self, job: Job) -> bool:
+    def host_alloc_condition(self, hostname: str, job: Job) -> float:
+        """Condition on how to sort the hosts based on the speedup that the job
+        will gain/lose. Always spread first
+        """
+        return 1.0
 
-        # Mark job as compact
-        job.socket_conf = self.cluster.full_socket_allocation
+    def allocation(self, job: Job, socket_conf: tuple) -> bool:
+        """We allocate first to the idle hosts and then to the in use hosts
+        """
+        """Co-allocate a job to an executing job under a specific socket mapping/configuration
+        + job: the job we want to co-allocate
+        + socket_conf: socket mapping/configuration for the job
+        """
 
-        # Get number of required cores
-        req_cores = job.num_of_processes
+        job.socket_conf = socket_conf
 
-        # Find suitable hosts
-        suitable_hosts = self.find_suitable_nodes(req_cores,
-                                                  self.cluster.full_socket_allocation)
+        # Get only the suitable hosts
+        suitable_hosts = self.find_suitable_nodes(job.num_of_processes,
+                                                  socket_conf)
 
-        #
-        # Add filter to the suitable hosts (maybe general method for coloc)
-        #
-
-        # Can't allocate job
-        if suitable_hosts == {}:
+        # If no suitable hosts where found
+        if suitable_hosts == dict():
             return False
 
-        needed_ppn = sum(self.cluster.full_socket_allocation)
+        # Apply the colocation condition
+        suitable_hosts = dict(
+                sorted(suitable_hosts.items(), key=lambda it: self.host_alloc_condition(it[0], job), reverse=True)
+        )
+        needed_ppn = sum(job.socket_conf)
         needed_hosts = ceil(job.num_of_processes / needed_ppn)
 
         req_hosts = needed_hosts
@@ -107,9 +116,13 @@ class Scheduler(ABC):
             req_hosts -= 1
             if req_hosts == 0:
                 break
+
         self.compeng.deploy_job_to_hosts(req_hosts_psets, job)
 
         return True
+
+    def compact_allocation(self, job: Job) -> bool:
+        return self.allocation(job, self.cluster.full_socket_allocation)
 
     def pop(self, queue: list[Job]) -> Job:
         """Get and remove an object from a queue

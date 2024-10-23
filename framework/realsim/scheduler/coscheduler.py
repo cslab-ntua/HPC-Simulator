@@ -54,7 +54,7 @@ class Coscheduler(Scheduler, ABC):
     def setup(self) -> None:
         pass
 
-    def coloc_condition(self, hostname: str, job: Job) -> float:
+    def host_alloc_condition(self, hostname: str, job: Job) -> float:
         """Condition on how to sort the hosts based on the speedup that the job
         will gain/lose. Always spread first
         """
@@ -78,44 +78,6 @@ class Coscheduler(Scheduler, ABC):
                 worst_speedup = speedup
 
         return worst_speedup
-
-    def colocation(self, job: Job, socket_conf: tuple) -> bool:
-        """We allocate first to the idle hosts and then to the in use hosts
-        """
-
-        job.socket_conf = socket_conf
-        needed_ppn = sum(job.socket_conf)
-        needed_hosts = ceil(job.num_of_processes / needed_ppn)
-
-        #print(socket_conf)
-
-        # Get only the suitable hosts
-        suitable_hosts = self.find_suitable_nodes(job.num_of_processes,
-                                                  socket_conf)
-
-        # If no suitable hosts where found
-        if suitable_hosts == dict():
-            return False
-
-        # Apply the colocation condition
-        suitable_hosts = dict(
-                sorted(suitable_hosts.items(), key=lambda it: self.coloc_condition(it[0], job), reverse=True)
-        )
-
-        #self.compeng.deploy_job_to_hosts(islice(suitable_hosts.items(), needed_hosts), job)
-        req_hosts = needed_hosts
-        req_hosts_psets = list()
-        for hostname, psets in suitable_hosts.items():
-            req_hosts_psets.append((hostname, psets))
-            req_hosts -= 1
-            if req_hosts == 0:
-                break
-
-        # print(job.get_signature(), socket_conf, req_hosts_psets)
-        
-        self.compeng.deploy_job_to_hosts(req_hosts_psets, job)
-
-        return True
 
     @abstractmethod
     def deploy(self) -> bool:

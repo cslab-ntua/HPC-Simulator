@@ -1,27 +1,37 @@
 import subprocess
 import os
 import sys
+import argparse
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
 
-from batch.batch_utils import BatchCreator
-
 if __name__ == "__main__":
-    try:
-        project_filename = sys.argv[1]
-    except:
-        raise RuntimeError("Didn't provide a project file")
+    parser = argparse.ArgumentParser(description="Provide a project file and a parallelizing provider to run simulations")
+    parser.add_argument("-f", "--project-file", help="Provide a project file name", required=True)
+    parser.add_argument("-p", "--provider", choices=["mpi", "mp"], default="mp", help="Define the provider for parallelizing tasks")
+    args = parser.parse_args()
 
-    batch_creator = BatchCreator(project_filename)
-    sims_num = batch_creator.get_procs_num()
+    project_file = args.project_file
+    provider = args.provider
 
-    print(f"Number of sims = {sims_num}")
+    if provider == "mp":
+        print("Using python's multiprocessing as backend")
 
-    process = subprocess.Popen(["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(sims_num), "python", "run.py", project_filename], 
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    print(stdout.decode())
-    print(stderr.decode())
+        process = subprocess.Popen(["python", "run_mp.py", project_file])
+
+    elif provider == "mpi":
+        print("Using MPI as backend")
+
+        from batch.batch_utils import BatchCreator
+
+        batch_creator = BatchCreator(project_file)
+        sims_num = batch_creator.get_procs_num()
+
+        print(f"Number of sims = {sims_num}")
+
+        process = subprocess.Popen(["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(sims_num), "python", "run_mpi.py", project_file])
+
+    else:
+        raise RuntimeError("No appropriate provider was given")

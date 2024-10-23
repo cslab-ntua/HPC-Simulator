@@ -3,17 +3,17 @@
 	"workloads": [
 		{
 			"db": "mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net",
-			"loads-machine": "remake-g5k.nancy.grvingt",
+			"loads-machine": "aris.compute",
 			"loads-suite": "NAS",
 			"generator": {
 				"type": "Random Generator",
-				"arg": 2000
+				"arg": 10
 			},
 			"cluster": {
-				"nodes": 8,
-				"socket-conf": [16, 16]
+				"nodes": 420,
+				"socket-conf": [10, 10]
 			},
-			"repeat": 1
+			"repeat": 100
 		}
 	],
 	"schedulers": {

@@ -1,7 +1,8 @@
 from mpi4py import MPI
 import os
 import sys
-import inspect
+from time import time
+from datetime import timedelta
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
@@ -22,14 +23,23 @@ if rank == 0:
 
     print("Sent pickled objects")
 
+    # Calculate the time it took to finish the simulation
+    start_time = time()
     # Execute the simulation
     simulation(batch_creator.ranks[0])
 
-    print(f"Rank{rank} finished")
+    end_time = time()
+
+    print(f"Rank{rank} finished with time = {timedelta(seconds=(end_time - start_time))}")
 
 else:
+
+    # Calculate the time it took to finish the simulation
+    start_time = time()
 
     # Execute the simulation
     simulation(comm.recv(source=0, tag=22))
 
-    print(f"Rank{rank} finished")
+    end_time = time()
+
+    print(f"Rank{rank} finished with time = {timedelta(seconds=(end_time - start_time))}")

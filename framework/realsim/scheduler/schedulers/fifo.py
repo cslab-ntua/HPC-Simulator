@@ -23,7 +23,7 @@ class FIFOScheduler(Scheduler):
     def deploy(self) -> bool:
 
         deployed = False
-        waiting_queue = deepcopy_list(self.cluster.waiting_queue)
+        waiting_queue = deepcopy_list(self.cluster.waiting_queue[:self.queue_depth])
 
         while waiting_queue != []:
 
