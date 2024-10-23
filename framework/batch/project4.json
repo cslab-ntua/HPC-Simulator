@@ -11,7 +11,7 @@
 			"loads-suite": "NAS",
 			"generator": {
 				"type": "Random From List Generator",
-				"arg": [10, "/home/nikos/Desktop/ipdps2025/sim/workloads/heatmap/static_marconi_x10/pool_0"]
+				"arg": [10, "/home/nikos/Desktop/ipdps2025/sim/workloads/heatmap/static_marconi/pool_0"]
 			},
 			"repeat": 2
 		}
@@ -28,7 +28,7 @@
 	"actions": [
 		{
 			"type": "export-csv",
-            "output_dir": "/home/nikos/Desktop/ipdps2025/dummy",
+            "output_dir": "/home/nikos/Desktop/ipdps2025/sim/workloads/heatmap/static_marconi/output/pool_0",
 			"workload": "all",
 			"scheduler": "all"
 		}
