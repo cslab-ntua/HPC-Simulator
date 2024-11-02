@@ -19,14 +19,17 @@ sys.path.append(os.path.abspath(
 from realsim.jobs import Job
 from realsim.database import Database
 from realsim.cluster.cluster import Cluster
+from realsim.cluster.host import Host
 from realsim.logger.logger import Logger
 from realsim.compengine import ComputeEngine
 
 class Scheduler(ABC):
-    """Scheduler provides a base class for scheduling methods. When creating an
-    instance of Cluster a scheduler must always be provided and a reference to
-    the cluster should also be provided to the scheduler instance. This way both
-    instances can communicate their data immediately.
+    """Scheduler class is the abstract base class for all the scheduling
+    algorithms that feed the simulation. It provides basic utility methods
+    such as searching for hosts with enough resources, allocation and 
+    allocation conditionals that are concrete for any inherited class. It
+    also provides abstract methods for deploying and backfilling that need
+    to be defined in concrete schedulers that are used in the simulation.
     """
 
     # The name of the scheduling algorithm
@@ -35,21 +38,45 @@ class Scheduler(ABC):
     # Describe the philosophy of the scheduler
     description = "The abstract base class for all scheduling algorithms"
 
-    def __init__(self, backfill_enabled: bool = False):
+    def __init__(self):
 
+        # References
         self.database: Database
         self.cluster: Cluster
         self.logger: Logger
         self.compeng: ComputeEngine
 
-        # Variable to test whether a backfill policy is enabled
-        self.queue_depth = None # None for the whole waiting queue
-        self.backfill_enabled: bool = backfill_enabled
-        self.backfill_depth: int = 100
-        self.aging_enabled: bool = False
-        self.age_threshold: int = 10
-        self.time_step = 30 # Decide every 30 seconds 
-        self.timer = self.time_step
+        # Properties of the scheduling algorithms
+        self.queue_depth = None # None is equivalent to using the whole waiting queue
+        self.backfill_enabled: bool = False # The most basic algorithm will not use backfill
+        self.backfill_depth = 100 # How far we reach for backfilling
+
+    def orig_find_suitable_nodes(self, 
+                            req_cores: int, 
+                            socket_conf: tuple) -> dict[str, list[ProcSet]]:
+        """ Returns hosts and their procsets that a job can use as resources
+        + req_cores   : required cores for the job
+        + socket_conf : under a certain socket mapping/configuration
+        """
+        cores_per_host = sum(socket_conf)
+        to_be_allocated = dict()
+        for hostname, host in self.cluster.hosts.items():
+            # If under the specifications of the required cores and socket 
+            # allocation *takes advantage of short circuit for idle hosts
+            if host.state == Host.IDLE or reduce(lambda x, y: x[0] <= len(x[1]) and y[0] <= len(y[1]), list(zip(socket_conf, host.sockets))):
+                req_cores -= cores_per_host
+                to_be_allocated.update({hostname: [
+                    ProcSet.from_str(' '.join([str(x) for x in p_set[:socket_conf[i]]]))
+                    for i, p_set in enumerate(host.sockets)]
+                })
+
+        # If the amount of cores needed is covered then return the list of possible
+        # hosts
+        if req_cores <= 0:
+            return to_be_allocated
+        # Else, if not all the cores can be allocated return an empty list
+        else:
+            return {}
 
     def find_suitable_nodes(self, 
                             req_cores: int, 
@@ -62,8 +89,8 @@ class Scheduler(ABC):
         to_be_allocated = dict()
         for hostname, host in self.cluster.hosts.items():
             # If under the specifications of the required cores and socket 
-            # allocation
-            if reduce(lambda x, y: x[0] <= len(x[1]) and y[0] <= len(y[1]), list(zip(socket_conf, host.sockets))):
+            # allocation *takes advantage of short circuit for idle hosts
+            if host.state == Host.IDLE or reduce(lambda x, y: x[0] <= len(x[1]) and y[0] <= len(y[1]), list(zip(socket_conf, host.sockets))):
                 req_cores -= cores_per_host
                 to_be_allocated.update({hostname: [
                     ProcSet.from_str(' '.join([str(x) for x in p_set[:socket_conf[i]]]))
@@ -79,8 +106,7 @@ class Scheduler(ABC):
             return {}
 
     def host_alloc_condition(self, hostname: str, job: Job) -> float:
-        """Condition on how to sort the hosts based on the speedup that the job
-        will gain/lose. Always spread first
+        """Condition on which hosts to use first for allocation.
         """
         return 1.0
 
@@ -106,6 +132,9 @@ class Scheduler(ABC):
         suitable_hosts = dict(
                 sorted(suitable_hosts.items(), key=lambda it: self.host_alloc_condition(it[0], job), reverse=True)
         )
+
+        # Calculate how many cores per node and the number 
+        # of nodes needed to satisfy the job
         needed_ppn = sum(job.socket_conf)
         needed_hosts = ceil(job.num_of_processes / needed_ppn)
 
@@ -122,6 +151,8 @@ class Scheduler(ABC):
         return True
 
     def compact_allocation(self, job: Job) -> bool:
+        """Compact and exclusive allocation of a job
+        """
         return self.allocation(job, self.cluster.full_socket_allocation)
 
     def pop(self, queue: list[Job]) -> Job:
@@ -138,13 +169,8 @@ class Scheduler(ABC):
         """
         pass
 
-    def backfill(self) -> bool:
-        """A backfill algorithm for the scheduler
-        """
-        return False
-        
     def waiting_queue_reorder(self, job: Job) -> float:
-        """Waiting queue reordering logic
+        """How to re-order the jobs inside the waiting queue
         """
         return 1.0
 
@@ -153,3 +179,8 @@ class Scheduler(ABC):
         """Abstract method to deploy the new execution list to the cluster
         """
         pass
+
+    def backfill(self) -> bool:
+        """A backfill algorithm for the scheduler
+        """
+        return False

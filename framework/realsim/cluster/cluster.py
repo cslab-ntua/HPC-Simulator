@@ -40,6 +40,9 @@ class Cluster:
         # Constant number of total cores available in the cluster
         self.total_cores = self.free_cores
 
+        # Changing number of idle cores
+        self.idle_cores = self.nodes * _cores_per_node
+
         # Waiting queue size
         self.queue_size = inf
         # The queue of waiting jobs
@@ -60,11 +63,13 @@ class Cluster:
         self.execution_list = list()
 
     def get_idle_cores(self) -> int:
-        _sum = 0
-        for host in self.hosts.values():
-            _sum += host.get_idle_cores_num()
+        return self.idle_cores
+        # _sum = 0
+        # for host in self.hosts.values():
+        #     _sum += host.get_idle_cores_num()
 
-        return _sum
+        # return _sum
 
     def get_used_cores(self) -> int:
-        return sum(self.socket_conf) * len(self.hosts) - self.get_idle_cores()
+        return self.total_cores - self.idle_cores
+        #return sum(self.socket_conf) * len(self.hosts) - self.get_idle_cores()

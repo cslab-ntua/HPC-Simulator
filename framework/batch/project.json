@@ -7,13 +7,13 @@
 			"loads-suite": "NAS",
 			"generator": {
 				"type": "Random Generator",
-				"arg": 2000
+				"arg": 1000
 			},
 			"cluster": {
 				"nodes": 8,
 				"socket-conf": [16, 16]
 			},
-			"repeat": 1
+			"repeat": 2
 		}
 	],
 	"schedulers": {
@@ -21,7 +21,8 @@
 		"others": [
 			"EASY Scheduler",
 			"Conservative Scheduler",
-			"Random Ranks Co-Scheduler"
+			"Random Ranks Co-Scheduler",
+			"/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
 		],
 		"backfill_enabled": true
 	},

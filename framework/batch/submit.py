@@ -2,6 +2,7 @@ import subprocess
 import os
 import sys
 import argparse
+from multiprocessing import cpu_count
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
@@ -29,9 +30,14 @@ if __name__ == "__main__":
         batch_creator = BatchCreator(project_file)
         sims_num = batch_creator.get_procs_num()
 
-        print(f"Number of sims = {sims_num}")
+        # print(f"Number of sims = {sims_num}")
+        #INFO: in a hpc system we need the total for all the hosts allocated
+        # so for example in SLURM we need the env variable SLURM_TASKS
+        total_threads = cpu_count()
+        if sims_num < total_threads:
+            total_threads = sims_num
 
-        process = subprocess.Popen(["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(sims_num), "python", "run_mpi.py", project_file])
+        process = subprocess.Popen(["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(total_threads), "python", "run_mpi.py", project_file])
 
     else:
         raise RuntimeError("No appropriate provider was given")

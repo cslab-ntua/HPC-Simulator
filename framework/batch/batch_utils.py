@@ -1,6 +1,6 @@
 from json import loads as json_loads
+from yaml import safe_load
 from pickle import load as pickle_load
-from functools import reduce
 import importlib.util
 import inspect
 import os
@@ -18,10 +18,6 @@ sys.path.append(os.path.abspath(
 
 # LoadManager
 from api.loader import LoadManager
-
-# Import deepcopy capabilities
-from realsim.jobs.utils import deepcopy_list
-from copy import deepcopy
 
 # Database
 from realsim.database import Database
@@ -53,7 +49,14 @@ from realsim.logger.logger import Logger
 
 # ComputeEngine
 from realsim.compengine import ComputeEngine
-from realsim.par_compengine import ParallelComputeEngine
+
+def import_module(path):
+    mod_name = os.path.basename(path).replace(".py", "")
+    spec = importlib.util.spec_from_file_location(mod_name, path)
+    gen_mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = gen_mod
+    spec.loader.exec_module(gen_mod)
+    return spec.name
 
 
 class BatchCreator:
@@ -84,7 +87,8 @@ class BatchCreator:
         
         # Load the configuration file
         with open(path_to_script, "r") as fd:
-            data = json_loads(fd.read())
+            #data = json_loads(fd.read())
+            data = safe_load(fd)
             
             if "name" not in data or "workloads" not in data or "schedulers" not in data:
                 raise RuntimeError("The configuration file is not properly designed")
@@ -94,14 +98,8 @@ class BatchCreator:
             self.__project_schedulers = data["schedulers"]
             self.__project_actions = data["actions"] if "actions" in data else dict()
 
-    @staticmethod
-    def import_module(path):
-        mod_name = os.path.basename(path).replace(".py", "")
-        spec = importlib.util.spec_from_file_location(mod_name, path)
-        gen_mod = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = gen_mod
-        spec.loader.exec_module(gen_mod)
-        return spec.name
+        # If using MPI store modules that should be exported to other MPI procs
+        self.mods_export = list()
 
     def get_procs_num(self) -> int:
         workloads_num = 0
@@ -152,7 +150,7 @@ class BatchCreator:
                 # If a python file is provided for the generator
                 if os.path.exists(gen_type) and ".py" in gen_type:
                     # Import generator module
-                    spec_name = BatchCreator.import_module(gen_type)
+                    spec_name = import_module(gen_type)
                     gen_mod = sys.modules[spec_name]
                     # Get the generator class from the module
                     classes = inspect.getmembers(gen_mod, inspect.isclass)
@@ -164,6 +162,9 @@ class BatchCreator:
                         print(f"Multiple generator definitions were found. Using the first definition: {classes[0][0]}")
 
                     _, gen_cls = classes[0]
+
+                    # Export module for MPI procs
+                    self.mods_export.append(gen_type)
                 else:
                     try:
                         gen_cls = self.__impl_generators[gen_type]
@@ -191,7 +192,7 @@ class BatchCreator:
 
                         # If a path is provided for the distribution transformer
                         if os.path.exists(distr_type) and ".py" in distr_type:
-                            spec_name = BatchCreator.import_module(distr_type)
+                            spec_name = import_module(distr_type)
                             distr_mod = sys.modules[spec_name]
                             classes = inspect.getmembers(distr_mod, inspect.isclass)
                             classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], IDistribution), classes))
@@ -200,6 +201,8 @@ class BatchCreator:
                                 print(f"Multiple distribution definitions were found. Using the first definition: {classes[0][0]}")
 
                             _, distr_cls = classes[0]
+                            # Export module for MPI procs
+                            self.mods_export.append(distr_type)
                         else:
                             try:
                                 distr_cls = self.__impl_distributions[distr_type]
@@ -225,7 +228,7 @@ class BatchCreator:
         for scheduler in [self.__project_schedulers["default"]] + self.__project_schedulers["others"]:
 
             if os.path.exists(scheduler) and ".py" in scheduler:
-                spec_name = BatchCreator.import_module(scheduler)
+                spec_name = import_module(scheduler)
                 sched_mod = sys.modules[spec_name]
                 classes = inspect.getmembers(sched_mod, inspect.isclass)
                 classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], Scheduler), classes))
@@ -234,6 +237,10 @@ class BatchCreator:
                     print(f"Multiple scheduler definitions were found. Using the first definition: {classes[0][0]}")
 
                 _, sched_cls = classes[0]
+
+                # To export modules for MPI procs
+                print(scheduler)
+                self.mods_export.append(scheduler)
             else:
                 try:
                     sched_cls = self.__impl_schedulers[scheduler]
@@ -267,8 +274,8 @@ class BatchCreator:
         self.__actions = dict()
         for i in range(len(self.__workloads)):
             workload_dict = dict()
-            for sched_name in [self.__project_schedulers["default"]] + self.__project_schedulers["others"]:
-                workload_dict.update({sched_name: []})
+            for sched_cls in self.__schedulers:
+                workload_dict.update({sched_cls.name: []})
             self.__actions.update({i: workload_dict})
 
         # Define __extra_features
@@ -281,6 +288,7 @@ class BatchCreator:
             action_extra_features = [(arg, val) 
                                      for arg, val in self.__project_actions[action].items() 
                                      if arg not in ["workloads", "schedulers"]]
+
             # Simple implementation is to overwrite an argument with the latest
             # value provided in the project file
             self.__extra_features.extend(action_extra_features)
@@ -321,7 +329,10 @@ class BatchCreator:
 
                 # Create a scheduler instance
                 scheduler = sched_cls()
-                scheduler.backfill_enabled = self.__project_schedulers["backfill_enabled"]
+                # Apply all the general options if any exists
+                if "general-options" in self.__project_schedulers:
+                    for opt, val in self.__project_schedulers["general-options"].items():
+                        scheduler.__dict__[opt] = val
 
                 # Create a logger instance
                 logger = Logger(debug=False)
@@ -336,5 +347,3 @@ class BatchCreator:
                 actions = self.__actions[idx][sched_cls.name]
                 
                 self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
-
-        print("Processed ranks")

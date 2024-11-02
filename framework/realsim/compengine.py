@@ -173,9 +173,10 @@ class ComputeEngine:
             job.get_signature(): psets
         })
 
-        # Remove psets from host
+        # Remove psets from host and decrease the number of idle cores in cluster
         for i, socket_pset in enumerate(self.cluster.hosts[hostname].sockets):
             socket_pset -= psets[i]
+            self.cluster.idle_cores -= len(psets[i])
 
         # Log the event
         self.logger.log(evts.JobStart, msg=job.get_signature(), job=job, psets=psets, hostname=hostname)
@@ -209,9 +210,11 @@ class ComputeEngine:
             # Log the event
             self.logger.log(evts.JobCleanedFromHost, msg=f"{hostname} out-> {job.get_signature()}")
 
-            # Return the allocated processors of a job to each host
+            # Return the allocated processors of a job to each host 
+            # and add the number of returned cores to idle cores of cluster
             for i, pset in enumerate(self.cluster.hosts[hostname].jobs[job.get_signature()]):
                 self.cluster.hosts[hostname].sockets[i] = self.cluster.hosts[hostname].sockets[i].union(pset)
+                self.cluster.idle_cores += len(pset)
 
             # Remove job signature from host
             self.cluster.hosts[hostname].jobs.pop(job.get_signature())

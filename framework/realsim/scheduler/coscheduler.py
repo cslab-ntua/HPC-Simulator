@@ -1,12 +1,7 @@
 from abc import ABC, abstractmethod
-from math import ceil
-from itertools import islice
 
 import os
 import sys
-from typing import Optional
-
-from framework.realsim.compengine import ComputeEngine
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../../')
@@ -16,15 +11,9 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), '../../../')
 ))
 
-from realsim.cluster.host import Host
 from realsim.scheduler.scheduler import Scheduler
 from realsim.jobs import Job
-from typing import Protocol
 
-
-class ScikitModel(Protocol):
-    def predict(self, X):
-        pass
 
 
 class Coscheduler(Scheduler, ABC):
@@ -34,21 +23,8 @@ class Coscheduler(Scheduler, ABC):
     name = "Abstract Co-Scheduler"
     description = "Abstract base class for all co-scheduling algorithms"
 
-    def __init__(self,
-                 backfill_enabled: bool = False,
-                 aging_enabled: bool = False,
-                 speedup_threshold: float = 1.0,
-                 system_utilization: float = 1.0,
-                 engine: Optional[ScikitModel] = None):
-
+    def __init__(self):
         Scheduler.__init__(self)
-
-        self.backfill_enabled = backfill_enabled
-        self.aging_enabled = aging_enabled
-        self.speedup_threshold = speedup_threshold
-        self.system_utilization = system_utilization
-
-        self.engine = engine
 
     @abstractmethod
     def setup(self) -> None:

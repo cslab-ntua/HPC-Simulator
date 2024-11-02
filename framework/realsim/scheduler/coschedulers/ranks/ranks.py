@@ -1,6 +1,5 @@
 import os
 import sys
-from typing import Optional
 
 sys.path.append(os.path.abspath(os.path.join(
     os.path.dirname(__file__), "../../../../"
@@ -8,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(
 
 from realsim.jobs.jobs import Job
 from realsim.jobs.utils import deepcopy_list
-from realsim.scheduler.coscheduler import Coscheduler, ScikitModel
+from realsim.scheduler.coscheduler import Coscheduler
 from realsim.cluster.host import Host
 
 from abc import ABC
@@ -22,23 +21,12 @@ class RanksCoscheduler(Coscheduler, ABC):
     construct. If a job reaches rank 0, then it is not capable for co-scheduling
     and is allocated for exclusive compact execution."""
 
-    def __init__(self,
-                 backfill_enabled: bool = False,
-                 aging_enabled: bool = False,
-                 speedup_threshold: float = 1.0,
-                 ranks_threshold: float = 1.0,
-                 system_utilization: float = 1.0,
-                 engine: Optional[ScikitModel] = None):
+    def __init__(self):
 
-        Coscheduler.__init__(self, 
-                             backfill_enabled, 
-                             aging_enabled,
-                             speedup_threshold, 
-                             system_utilization, 
-                             engine)
+        Coscheduler.__init__(self)
 
         self.ranks : dict[int, int] = dict() # jobId --> number of good pairings
-        self.ranks_threshold = ranks_threshold
+        self.ranks_threshold = 1.0
 
     def update_ranks(self):
 
@@ -77,8 +65,8 @@ class RanksCoscheduler(Coscheduler, ABC):
 
         # The job is not eligible for compact execution
         # if self.ranks[job.job_id] != 0 and job.age < self.age_threshold:
-        if self.ranks[job.job_id] != 0:
-            return False
+        # if self.ranks[job.job_id] != 0:
+        #     return False
 
         return super().compact_allocation(job)
 
@@ -103,9 +91,9 @@ class RanksCoscheduler(Coscheduler, ABC):
                 deployed = True
                 self.after_deployment()
             # Compact
-            # elif self.compact_allocation(job):
-            #     deployed = True
-            #     self.after_deployment()
+            elif self.compact_allocation(job):
+                deployed = True
+                self.after_deployment()
             else:
                 break
 
