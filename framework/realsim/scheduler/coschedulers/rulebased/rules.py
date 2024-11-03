@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(
 
 from realsim.jobs.jobs import Job, JobCharacterization
 from realsim.jobs.utils import deepcopy_list
-from realsim.scheduler.coscheduler import Coscheduler, ScikitModel
+from realsim.scheduler.coscheduler import Coscheduler
 import math
 
 from abc import ABC
