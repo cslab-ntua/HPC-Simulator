@@ -7,6 +7,7 @@ from time import time_ns, time
 from datetime import timedelta
 import os
 import sys
+import base64
 
 sys.path.append(os.path.abspath(os.path.join(
     os.path.dirname(__file__), "../../../../"
@@ -118,8 +119,8 @@ clientside_callback(
         Input("simulation-run-btn", "n_clicks"),
 
         # Generator args
-        State("workloads-machines-select", "value"),
-        State("workloads-suites-select", "value"),
+        State("datalogs-machines-select", "value"),
+        State("datalogs-suites-select", "value"),
         State("generator-type", "value"),
         State("generator-options", "children"),
 
@@ -167,28 +168,37 @@ def parallel_simulations(par_inp):
         # Based on distribution
         if simulation_distribution == "Constant":
             for i, job in enumerate(jobs_set):
-                    job.queued_time = i * generator_time
+                    job.submit_time = i * generator_time
         elif simulation_distribution == "Random":
             seed(time_ns() % (2 ** 32))
             current_time = randint(low=0, high=generator_time, size=(1,))[0]
             for job in jobs_set:
-                job.queued_time = current_time
+                job.submit_time = current_time
                 seed(time_ns() % (2 ** 32))
                 current_time += randint(low=0, high=generator_time, size=(1,))[0]
         elif simulation_distribution == "Poisson":
+            # For experimental reasons let's create packets of 50 jobs each
+            interpacket_diff = 50 * 5 * generator_time
             current_time = exponential(generator_time)
+            i = 0
             for job in jobs_set:
-                job.queued_time = current_time
+                if i % 50 == 0:
+                    current_time += interpacket_diff
+                job.submit_time = current_time
                 current_time += exponential(generator_time)
+                i += 1
         else:
             pass
 
     # Unpack cluster bundle
-    nodes, ppn = cluster_bundle
+    nodes, ppn, queue_size = cluster_bundle
+
+    #TODO: generalize it -> different number of sockets and assymetrical sockets
+    socket_conf = (int(ppn/2), int(ppn/2))
 
     # Setup simulation
-    sim = Simulation(jobs_set, 
-                     nodes, ppn, 
+    sim = Simulation(jobs_set, lm.export_heatmap(),
+                     nodes, socket_conf, queue_size,
                      schedulers_bundle)
     sim.set_default("Default Scheduler")
 
@@ -204,30 +214,36 @@ def parallel_simulations(par_inp):
         Output("results-store", "data"),
         Output("results-modal", "is_open", True),
         Input("run-store", "data"),
+        State("queue-size", "value"),
         prevent_initial_call=True
 )
-def run_simulation(data):
+def run_simulation(data, queue_size):
 
     # Create load manager
-    if data["workloads-suite"] == "All":
-        lm = LoadManager(machine=data["workloads-machine"])
+    if data["datalogs-suite"] == "All":
+        raise Exception("All suites is WIP")
+        lm = LoadManager(machine=data["datalogs-machine"])
     else:
-        lm = LoadManager(machine=data["workloads-machine"],
-                         suite=data["workloads-suite"])
+        lm = LoadManager(machine=data["datalogs-machine"],
+                         suite=data["datalogs-suite"])
     lm.import_from_db(host="mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net",
                       dbname="storehouse")
     
     # ONLY FOR REGALE
     try:
-        for load in ["bt.D.484", "sp.D.484", "bt.E.2025", "cg.E.2048", "ft.E.2048", "lu.E.2048", "sp.E.2025"]:
+        for load in ["bt.E.2025", "cg.E.2048", "ft.E.2048", "lu.E.2048", "sp.E.2025"]:
             lm.loads.pop(load)
     except:
         pass
 
     # Setup generator bundle
-    # TODO: change 'mapping' name
     gen_class = mapping[data["generator-type"]]
     gen_input = data["generator-input"]
+    if gen_class.name == "List Generator":
+        gen_input = gen_input.split(",")[1]
+        gen_input = base64.b64decode(gen_input)
+        gen_input = gen_input.decode("utf-8")
+    print(gen_input)
     simulation_type = data["simulation-type"]
     simulation_dynamic_condition = data["simulation-dynamic-condition"]
 
@@ -242,10 +258,11 @@ def run_simulation(data):
     # Setup cluster bundle
     cluster_bundle = (
             data["cluster-nodes"],
-            data["cluster-ppn"]
+            data["cluster-ppn"],
+            queue_size
     )
 
-    # Setup schedulers bundle
+    # Setup schedulers' bundle
     schedulers_bundle = []
     for name, hyperparams in data["schedulers"].items():
         sched_class = stored_modules[name]["classobj"]

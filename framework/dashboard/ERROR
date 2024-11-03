@@ -1,0 +1,138 @@
+Dash is running on http://0.0.0.0:8050/
+
+ * Serving Flask app 'dashboard'
+ * Debug mode: on
+10
+Running the default scheduler
+DEPLOY 0:mg.D.32 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))])]
+DEPLOY 1:mg.E.128 [('host1', [ProcSet((33, 48)), ProcSet((49, 64))]), ('host2', [ProcSet((65, 80)), ProcSet((81, 96))]), ('host3', [ProcSet((97, 112)), ProcSet((113, 128))]), ('host4', [ProcSet((129, 144)), ProcSet((145, 160))])]
+DEPLOY 2:mg.D.32 [('host5', [ProcSet((161, 176)), ProcSet((177, 192))])]
+
+CLEAN 0:mg.D.32 ['host0']
+host0 {'0:mg.D.32': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 0:mg.D.32 1-16 
+CLEAN2 0:mg.D.32 1-16 1-16
+CLEAN1 0:mg.D.32 17-32 
+CLEAN2 0:mg.D.32 17-32 17-32
+
+
+CLEAN 2:mg.D.32 ['host5']
+host5 {'2:mg.D.32': [ProcSet((161, 176)), ProcSet((177, 192))]}
+
+CLEAN1 2:mg.D.32 161-176 
+CLEAN2 2:mg.D.32 161-176 161-176
+CLEAN1 2:mg.D.32 177-192 
+CLEAN2 2:mg.D.32 177-192 177-192
+
+DEPLOY 3:mg.E.128 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))]), ('host5', [ProcSet((161, 176)), ProcSet((177, 192))]), ('host6', [ProcSet((193, 208)), ProcSet((209, 224))]), ('host7', [ProcSet((225, 240)), ProcSet((241, 256))])]
+
+CLEAN 3:mg.E.128 ['host0', 'host5', 'host6', 'host7']
+host0 {'3:mg.E.128': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 3:mg.E.128 1-16 
+CLEAN2 3:mg.E.128 1-16 1-16
+CLEAN1 3:mg.E.128 17-32 
+CLEAN2 3:mg.E.128 17-32 17-32
+
+host5 {'3:mg.E.128': [ProcSet((161, 176)), ProcSet((177, 192))]}
+
+CLEAN1 3:mg.E.128 161-176 
+CLEAN2 3:mg.E.128 161-176 161-176
+CLEAN1 3:mg.E.128 177-192 
+CLEAN2 3:mg.E.128 177-192 177-192
+
+host6 {'3:mg.E.128': [ProcSet((193, 208)), ProcSet((209, 224))]}
+
+CLEAN1 3:mg.E.128 193-208 
+CLEAN2 3:mg.E.128 193-208 193-208
+CLEAN1 3:mg.E.128 209-224 
+CLEAN2 3:mg.E.128 209-224 209-224
+
+host7 {'3:mg.E.128': [ProcSet((225, 240)), ProcSet((241, 256))]}
+
+CLEAN1 3:mg.E.128 225-240 
+CLEAN2 3:mg.E.128 225-240 225-240
+CLEAN1 3:mg.E.128 241-256 
+CLEAN2 3:mg.E.128 241-256 241-256
+
+DEPLOY 4:sp.D.121 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))]), ('host5', [ProcSet((161, 176)), ProcSet((177, 192))]), ('host6', [ProcSet((193, 208)), ProcSet((209, 224))]), ('host7', [ProcSet((225, 240)), ProcSet((241, 256))])]
+
+CLEAN 4:sp.D.121 ['host0', 'host5', 'host6', 'host7']
+host0 {'4:sp.D.121': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 4:sp.D.121 1-16 
+CLEAN2 4:sp.D.121 1-16 1-16
+CLEAN1 4:sp.D.121 17-32 
+CLEAN2 4:sp.D.121 17-32 17-32
+
+host5 {'4:sp.D.121': [ProcSet((161, 176)), ProcSet((177, 192))]}
+
+CLEAN1 4:sp.D.121 161-176 
+CLEAN2 4:sp.D.121 161-176 161-176
+CLEAN1 4:sp.D.121 177-192 
+CLEAN2 4:sp.D.121 177-192 177-192
+
+host6 {'4:sp.D.121': [ProcSet((193, 208)), ProcSet((209, 224))]}
+
+CLEAN1 4:sp.D.121 193-208 
+CLEAN2 4:sp.D.121 193-208 193-208
+CLEAN1 4:sp.D.121 209-224 
+CLEAN2 4:sp.D.121 209-224 209-224
+
+host7 {'4:sp.D.121': [ProcSet((225, 240)), ProcSet((241, 256))]}
+
+CLEAN1 4:sp.D.121 225-240 
+CLEAN2 4:sp.D.121 225-240 225-240
+CLEAN1 4:sp.D.121 241-256 
+CLEAN2 4:sp.D.121 241-256 241-256
+
+DEPLOY 5:ft.D.64 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))]), ('host5', [ProcSet((161, 176)), ProcSet((177, 192))])]
+DEPLOY 6:ft.D.32 [('host6', [ProcSet((193, 208)), ProcSet((209, 224))])]
+
+CLEAN 5:ft.D.64 ['host0', 'host5']
+host0 {'5:ft.D.64': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 5:ft.D.64 1-16 
+CLEAN2 5:ft.D.64 1-16 1-16
+CLEAN1 5:ft.D.64 17-32 
+CLEAN2 5:ft.D.64 17-32 17-32
+
+host5 {'5:ft.D.64': [ProcSet((161, 176)), ProcSet((177, 192))]}
+
+CLEAN1 5:ft.D.64 161-176 
+CLEAN2 5:ft.D.64 161-176 161-176
+CLEAN1 5:ft.D.64 177-192 
+CLEAN2 5:ft.D.64 177-192 177-192
+
+DEPLOY 7:ft.D.64 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))]), ('host5', [ProcSet((161, 176)), ProcSet((177, 192))])]
+DEPLOY 8:ft.D.32 [('host7', [ProcSet((225, 240)), ProcSet((241, 256))])]
+
+CLEAN 7:ft.D.64 ['host0', 'host5']
+host0 {'7:ft.D.64': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 7:ft.D.64 1-16 
+CLEAN2 7:ft.D.64 1-16 1-16
+CLEAN1 7:ft.D.64 17-32 
+CLEAN2 7:ft.D.64 17-32 17-32
+
+host5 {'7:ft.D.64': [ProcSet((161, 176)), ProcSet((177, 192))]}
+
+CLEAN1 7:ft.D.64 161-176 
+CLEAN2 7:ft.D.64 161-176 161-176
+CLEAN1 7:ft.D.64 177-192 
+CLEAN2 7:ft.D.64 177-192 177-192
+
+DEPLOY 9:ft.D.32 [('host0', [ProcSet((1, 16)), ProcSet((17, 32))])]
+
+CLEAN 9:ft.D.32 ['host0']
+host0 {'9:ft.D.32': [ProcSet((1, 16)), ProcSet((17, 32))]}
+
+CLEAN1 9:ft.D.32 1-16 
+CLEAN2 9:ft.D.32 1-16 1-16
+CLEAN1 9:ft.D.32 17-32 
+CLEAN2 9:ft.D.32 17-32 17-32
+
+{'0:mg.D.32': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32)), 'hosts': {'host0'}, 'remaining time': [], 'start time': 0, 'finish time': 65.48875, 'submit time': 0, 'waiting time': 0, 'wall time': 81.86093749999999, 'num of processes': 32}, '1:mg.E.128': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((33, 160)), 'hosts': {'host1', 'host4', 'host2', 'host3'}, 'remaining time': [], 'start time': 0, 'finish time': 0, 'submit time': 0, 'waiting time': 0, 'wall time': 159.25625000000002, 'num of processes': 128}, '2:mg.D.32': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((161, 192)), 'hosts': {'host5'}, 'remaining time': [], 'start time': 0, 'finish time': 65.48875, 'submit time': 0, 'waiting time': 0, 'wall time': 81.86093749999999, 'num of processes': 32}, '3:mg.E.128': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32), (161, 256)), 'hosts': {'host0', 'host5', 'host7', 'host6'}, 'remaining time': [], 'start time': 65.48875, 'finish time': 192.89375, 'submit time': 0, 'waiting time': 65.48875, 'wall time': 159.25625000000002, 'num of processes': 128}, '4:sp.D.121': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32), (161, 256)), 'hosts': {'host0', 'host5', 'host7', 'host6'}, 'remaining time': [], 'start time': 192.89375, 'finish time': 559.58375, 'submit time': 0, 'waiting time': 192.89375, 'wall time': 458.3625, 'num of processes': 121}, '5:ft.D.64': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32), (161, 192)), 'hosts': {'host0', 'host5'}, 'remaining time': [], 'start time': 559.58375, 'finish time': 700.60125, 'submit time': 0, 'waiting time': 559.58375, 'wall time': 176.27187500000002, 'num of processes': 64}, '6:ft.D.32': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((193, 224)), 'hosts': {'host6'}, 'remaining time': [], 'start time': 559.58375, 'finish time': 0, 'submit time': 0, 'waiting time': 559.58375, 'wall time': 312.4125, 'num of processes': 32}, '7:ft.D.64': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32), (161, 192)), 'hosts': {'host0', 'host5'}, 'remaining time': [], 'start time': 700.60125, 'finish time': 841.6187500000001, 'submit time': 0, 'waiting time': 700.60125, 'wall time': 176.27187500000002, 'num of processes': 64}, '8:ft.D.32': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((225, 256)), 'hosts': {'host7'}, 'remaining time': [], 'start time': 700.60125, 'finish time': 0, 'submit time': 0, 'waiting time': 700.60125, 'wall time': 312.4125, 'num of processes': 32}, '9:ft.D.32': {'trace': [], 'speedups': [], 'cores': {}, 'assigned procs': ProcSet((1, 32)), 'hosts': {'host0'}, 'remaining time': [], 'start time': 841.6187500000001, 'finish time': 1091.5487500000002, 'submit time': 0, 'waiting time': 841.6187500000001, 'wall time': 312.4125, 'num of processes': 32}}
+<----- EXPERIMENTS SUBMITTED ----->
+<----- EXECUTOR FINISHED -----> 0:00:00.339350

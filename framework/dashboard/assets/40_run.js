@@ -13,8 +13,8 @@ Object.assign(window.dash_clientside.clientside, {
 	run_simulation: 
 	function(
 		n_clicks, 
-		workloads_machine, 
-		workloads_suite, 
+		datalogs_machine, 
+		datalogs_suite, 
 		generator_type, 
 		generator_options, 
 		cluster_clicks,
@@ -32,8 +32,8 @@ Object.assign(window.dash_clientside.clientside, {
 	{
 		// Define the return object
 		let data = {
-			'workloads-machine': workloads_machine,
-			'workloads-suite': workloads_suite,
+			'datalogs-machine': datalogs_machine,
+			'datalogs-suite': datalogs_suite,
 			'generator-type': generator_type,
 			'generator-input': undefined,
 			'cluster-nodes': undefined,
@@ -64,6 +64,13 @@ Object.assign(window.dash_clientside.clientside, {
 				});
 			}
 			data['generator-input'] = gen_options;
+		}
+		else if (generator_type == 'List Generator') {
+			let enc_contents = generator_options.props.contents;
+			// let data = enc_contents.split('base64,')[1];
+			// let contents = atob(data);
+			// console.log(contents);
+			data['generator-input'] = enc_contents;
 		}
 		else return window.dash_clientside.no_update;
 

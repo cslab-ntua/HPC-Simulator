@@ -29,13 +29,23 @@ def CB_update_schedulers(store_data, n_intervals):
                 for name, param in signature(mod_dict["classobj"]).parameters.items():
                     hyperparams[name] = str(param.annotation)
 
-                if "Default" in mod_dict["classobj"].name:
+                if "FIFO" in mod_dict["classobj"].name:
                     data.insert(0, {
                         "module": mod_name,
                         "name": mod_dict["classobj"].name,
                         "description": mod_dict["classobj"].description,
                         "selected": True,
-                        "disabled": True,
+                        "disabled": False,
+                        "hyperparams": hyperparams
+                    })
+
+                elif "EASY" in mod_dict["classobj"].name:
+                    data.insert(0, {
+                        "module": mod_name,
+                        "name": mod_dict["classobj"].name,
+                        "description": mod_dict["classobj"].description,
+                        "selected": True,
+                        "disabled": False,
                         "hyperparams": hyperparams
                     })
                 

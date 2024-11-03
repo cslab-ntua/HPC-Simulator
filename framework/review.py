@@ -2,6 +2,7 @@ import plotly.graph_objects as go
 import os
 import sys
 
+import re
 sys.path.append(os.path.abspath(
     os.path.dirname(__file__)
 ))

@@ -20,10 +20,10 @@ sys.path.append(os.path.abspath(os.path.join(
 
 from realsim.generators.abstract import AbstractGenerator
 
-# Get machines, suites per machine and workloads' names per machine per suite
+# Get machines, suites per machine and datalogs' names per machine per suite
 client = pymongo.MongoClient(host="mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net", 
                              server_api=ServerApi("1"))
-# Get all the documents for workloads from the database
+# Get all the documents for datalogs from the database
 db = client["storehouse"]
 collection  = db["loads"]
 documents = [doc["_id"] for doc in collection.find({})]
@@ -31,7 +31,7 @@ documents = [doc["_id"] for doc in collection.find({})]
 # Close connection with the database for security reasons
 client.close()
 
-# Hold all the information about machines, suites, workloads and their
+# Hold all the information about machines, suites, datalogs and their
 # hierarchical relationship
 data: dict[str, dict[str, list]] = dict()
 
@@ -53,18 +53,18 @@ for machine in machines:
 
     # Initialize every suite with empty list for workloads' names
 
-    # A suite that holds all the workloads
+    # A suite that holds all the logs
     data[machine]["All"] = []
 
     for suite in suites:
         data[machine][suite] = []
 
-# Store all the workloads
+# Store all the logs
 for doc in documents:
     data[doc["machine"]]["All"].append(doc["load"])
     data[doc["machine"]][doc["suite"]].append(doc["load"])
 
-# Sort all the workloads
+# Sort all the logs
 for _, m_dict in data.items():
     for _, workloads in m_dict.items():
         workloads.sort(key=lambda name: (name.split(".")[0],
@@ -87,8 +87,8 @@ for gen_class in AbstractGenerator.__subclasses__():
     mapping[gen_class.name] = gen_class
 
 gen_names_opt = dbc.Select(
-        list(mapping.keys()), 
-        list(mapping.keys())[0],
+        sorted(list(mapping.keys())), 
+        sorted(list(mapping.keys()))[0],
         id="generator-type"
 )
 
@@ -101,22 +101,22 @@ elem_generator = dbc.Container([
     dbc.Row([
         dbc.Col([dbc.CardImg(src="../../assets/static/images/generator.svg")], width=1),
         dbc.Col([
-            dbc.Row([html.P("Generator", className="h5"), html.P("""Select the 
-            workloads from which the jobs will be created and the type of
+            dbc.Row([html.P("Workload Generator", className="h5"), html.P("""Select the 
+            datalogs from which the jobs will be created and the type of
             generator""")]),
             ])
     ], className="d-flex element-header sticky-top"), 
 
-    # WORKLOADS ELEMENT ITEM
+    # DATALOGS ELEMENT ITEM
     dbc.Row([
 
-        html.Span("Workloads", className="h6"),
+        html.Span("Datalogs", className="h6"),
 
         dbc.Col([ 
                  dbc.Button([
                      html.I(className="bi bi-database",
-                            id="workloads-btn-class")
-                ], id="workloads-btn"),
+                            id="datalogs-btn-class")
+                ], id="datalogs-btn"),
         ], width=1),
 
         dbc.Col([
@@ -124,65 +124,90 @@ elem_generator = dbc.Container([
                 dbc.InputGroupText("Machine", style={"width": "30%"}),
                 dbc.Select(list(data.keys()), 
                            list(data.keys())[0],
-                           id="workloads-machines-select")
+                           id="datalogs-machines-select")
                 ])
-        ], width=6, id="workloads-machines-display", style={"display": "block"}),
+        ], width=6, id="datalogs-machines-display", style={"display": "block"}),
 
         dbc.Col([
             dbc.InputGroup([
                 dbc.InputGroupText("Suite", style={"width": "30%"}),
                 dbc.Select(list(data[list(data.keys())[0]]), 
                            "All",
-                           id="workloads-suites-select")
+                           id="datalogs-suites-select")
                 ])
-        ], width=5, id="workloads-suites-display", style={"display": "block"}),
+        ], width=5, id="datalogs-suites-display", style={"display": "block"}),
         
         dbc.Col([
-            dbc.Button("Upload directory", id="workloads-upload-directory",
+            dbc.Button("Upload directory", id="datalogs-upload-directory",
                        style={"width": "100%"})
-        ], width=11, id="workloads-upload-display", style={"display": "none"})
+        ], width=11, id="datalogs-upload-display", style={"display": "none"})
 
 
     ], class_name="element-item m-1 p-2"),
 
     # GENERATOR ELEMENT ITEM
     dbc.Row([
+        html.Span("Trace options", className="h6"),
+        dbc.Col([
+            dbc.InputGroup([
+                dbc.InputGroupText("Generator"),
+                gen_names_opt
+            ])
+        ]),
+        # dbc.Col([
+        #     dbc.InputGroup([
+        #         dbc.InputGroupText("Trace type", style={"width": "50%"}),
+        #         dbc.Select(["Static", "Dynamic"], "Static", id='simulation-type')
+        #     ]),
+        #     dbc.InputGroup([
+        #         dbc.InputGroupText("Distribution", style={"width": "50%"}),
+        #         dbc.Select(["Constant", "Poisson", "Random"], "Constant",
+        #                    id='simulation-distribution')
+        #     ], id="simulation-distribution-display", style={"display": "none"}),
 
-        html.Span("Generator", className="h6"),
-        gen_names_opt 
+        #     dbc.Col([
+        #         dbc.InputGroup([
+        #             dbc.InputGroupText("Generator interval (sec)", style={"width": "50%"}),
+        #             dbc.Input(value=0, type="number", min=0, 
+        #                       id="generator-time")
+        #         ]),
+        #     ], id="generator-time-display", style={"display": "none"}),
 
-        ], class_name="element-item m-1 p-2"),
+        # ])
+    ], class_name="element-item m-1 p-2"),
 
     # GENERATOR OPTIONS ELEMENT ITEM
     dbc.Row([
-        html.Span("Options", className="h6"),
+        html.Span("Generator Options", className="h6"),
         dbc.Spinner([
 
             dbc.Container(id="generator-options", style={"overflow": "scroll"})
 
                     ], color="primary")
-        ], class_name="element-item m-1 p-2 d-flex align-self-strech")
+        ], class_name="element-item m-1 p-2 d-flex align-self-strech"),
+
+    dcc.Upload(id="upload-tracefile")
 
     ], class_name="element d-flex align-items-strech")
 
-# Clientside callback for workloads element-item management
+# Clientside callback for datalogs element-item management
 clientside_callback(
         ClientsideFunction(
             namespace="clientside",
-            function_name="workloads_events"
+            function_name="datalogs_events"
         ),
-        Output("workloads-btn-class", "className"),
-        Output("workloads-machines-select", "value"),
-        Output("workloads-suites-select", "options"),
-        Output("workloads-suites-select", "value"),
-        Output("workloads-machines-display", "style"),
-        Output("workloads-suites-display", "style"),
-        Output("workloads-upload-display", "style"),
+        Output("datalogs-btn-class", "className"),
+        Output("datalogs-machines-select", "value"),
+        Output("datalogs-suites-select", "options"),
+        Output("datalogs-suites-select", "value"),
+        Output("datalogs-machines-display", "style"),
+        Output("datalogs-suites-display", "style"),
+        Output("datalogs-upload-display", "style"),
 
-        Input("workloads-btn", "n_clicks"),
-        Input("workloads-machines-select", "value"),
-        State("workloads-suites-select", "options"),
-        State("workloads-suites-select", "value"),
+        Input("datalogs-btn", "n_clicks"),
+        Input("datalogs-machines-select", "value"),
+        State("datalogs-suites-select", "options"),
+        State("datalogs-suites-select", "value"),
         State("generator-store", "data")
 )
 
@@ -194,7 +219,7 @@ clientside_callback(
         Output("generator-options", "children"),
 
         Input("generator-type", "value"),
-        Input("workloads-machines-select", "value"),
-        Input("workloads-suites-select", "value"),
+        Input("datalogs-machines-select", "value"),
+        Input("datalogs-suites-select", "value"),
         State("generator-store", "data")
 )

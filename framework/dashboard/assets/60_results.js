@@ -35,12 +35,58 @@ Object.assign(window.dash_clientside.clientside, {
 
 			menu_children.push(exp_btn);
 
-			let exp_collapse_children = [];
+			exp_id = exp_name.toLowerCase();
+			exp_id = exp_id.replace(/\s+/g, '_');
+
+			let all_jobs_throughput_btn = {
+				'type': 'Button',
+				'namespace': 'dash_bootstrap_components',
+				'props': {
+					'children': 'All jobs throughput',
+					'style': {'width': '100%'},
+					'color': 'secondary',
+					'outline': true,
+					'href': '#' + exp_id + '~all-jobs-throughputs'
+				}
+			}
+
+			let all_waiting_queues_btn = {
+				'type': 'Button',
+				'namespace': 'dash_bootstrap_components',
+				'props': {
+					'children': 'All waiting queues',
+					'style': {'width': '100%'},
+					'color': 'secondary',
+					'outline': true,
+					'href': '#' + exp_id + '~all-waiting-queues'
+				}
+			}
+
+			let all_unused_cores_btn = {
+				'type': 'Button',
+				'namespace': 'dash_bootstrap_components',
+				'props': {
+					'children': 'All unused cores',
+					'style': {'width': '100%'},
+					'color': 'secondary',
+					'outline': true,
+					'href': '#' + exp_id + '~all-unused-cores'
+				}
+			}
+
+			let exp_collapse_children = [{
+				'type': 'Container',
+				'namespace': 'dash_bootstrap_components',
+				'props': {
+					'children': [
+						all_jobs_throughput_btn,
+						all_waiting_queues_btn,
+						all_unused_cores_btn
+					]
+				}
+			}];
 
 			for ([sched_name, res_obj] of Object.entries(exp_obj)) {
-
-				exp_id = exp_name.toLowerCase();
-				exp_id = exp_id.replace(/\s+/g, '_');
 
 				sched_id = sched_name.toLowerCase();
 				sched_id = sched_id.replace(/\s+/g, '_');
@@ -68,6 +114,18 @@ Object.assign(window.dash_clientside.clientside, {
 					}
 				}
 
+				let gantt_btn = {
+					'type': 'Button',
+					'namespace': 'dash_bootstrap_components',
+					'props': {
+						'children': 'Gantt diagram',
+						'style': {'width': '100%'},
+						'color': 'primary',
+						'outline': true,
+						'href': '#' + unique_id + '~gantt_diagram'
+					}
+				}
+
 				let jobs_utilization_btn = {
 					'type': 'Button',
 					'namespace': 'dash_bootstrap_components',
@@ -80,6 +138,64 @@ Object.assign(window.dash_clientside.clientside, {
 					}
 				}
 
+				let cluster_history_btn = {
+					'type': 'Button',
+					'namespace': 'dash_bootstrap_components',
+					'props': {
+						'children': 'Cluster history',
+						'style': {'width': '100%'},
+						'color': 'primary',
+						'outline': true,
+						'href': '#' + unique_id + '~cluster_history'
+					}
+				}
+
+				let jobs_throughput_btn = {
+					'type': 'Button',
+					'namespace': 'dash_bootstrap_components',
+					'props': {
+						'children': 'Jobs throughput',
+						'style': {'width': '100%'},
+						'color': 'primary',
+						'outline': true,
+						'href': '#' + unique_id + '~jobs_throughput'
+					}
+				};
+
+				let waiting_queue_btn = {
+					'type': 'Button',
+					'namespace': 'dash_bootstrap_components',
+					'props': {
+						'children': 'Waiting queue',
+						'style': {'width': '100%'},
+						'color': 'primary',
+						'outline': true,
+						'href': '#' + unique_id + '~waiting_queue'
+					}
+				}
+
+				let workload_download_btn = {
+					'type': 'Button',
+					'namespace': 'dash_bootstrap_components',
+					'props': {
+						'children': [
+							'Workload Download ',
+							{
+								'type': 'I',
+								'namespace': 'dash_html_components',
+								'props': {
+									'className': 'bi bi-file-earmark-arrow-down',
+								}
+							},
+
+						],
+						'style': {'width': '100%'},
+						'color': 'primary',
+						'outline': true,
+						'href': '#' + unique_id + '~download-workload'
+					}
+				};
+
 				if (sched_name == 'Default Scheduler') {
 					exp_collapse_children.push({
 						'type': 'Container',
@@ -87,7 +203,12 @@ Object.assign(window.dash_clientside.clientside, {
 						'props': {
 							'children': [
 								label,
-								resource_usage_btn
+								// resource_usage_btn,
+								gantt_btn,
+								// jobs_throughput_btn,
+								// waiting_queue_btn,
+								workload_download_btn,
+								cluster_history_btn
 							]
 						}
 					})
@@ -99,8 +220,13 @@ Object.assign(window.dash_clientside.clientside, {
 						'props': {
 							'children': [
 								label,
-								resource_usage_btn,
-								jobs_utilization_btn
+								// resource_usage_btn,
+								gantt_btn,
+								jobs_utilization_btn,
+								// jobs_throughput_btn,
+								// waiting_queue_btn,
+								workload_download_btn,
+								cluster_history_btn
 							]
 						}
 					})
@@ -162,12 +288,32 @@ Object.assign(window.dash_clientside.clientside, {
 		if (arr.length == 1 && arr[0] == 'all-experiments') {
 			this.create_all_graph(data);
 		}
+		else if (arr.length == 2) {
+			// Per experiment logs
+			exp_tag = arr[0]
+			experiment = exp_tag.replace(/_/g, ' ')
+			experiment = experiment.charAt(0).toUpperCase() + experiment.slice(1)
+			if (arr[1] == 'all-jobs-throughputs') {
+				this.graph_all_jobs_throughput(data[experiment])
+			}
+			else if (arr[1] == 'all-waiting-queues') {
+				this.graph_all_waiting_queues(data[experiment])
+			}
+			else if (arr[1] == 'all-unused-cores') {
+				this.graph_all_unused_cores(data[experiment])
+			}
+			else
+				return window.dash_clientside.no_update;
+		}
 		else {
 
 			if (arr.length != 3)
 				return window.dash_clientside.no_update;
 
 			[exp_tag, sched_tag, graph_tag] = arr;
+
+			if (graph_tag == 'download-workload')
+				return window.dash_clientside.no_update;
 
 			experiment = exp_tag.replace(/_/g, ' ')
 			experiment = experiment.charAt(0).toUpperCase() + experiment.slice(1)
@@ -186,6 +332,18 @@ Object.assign(window.dash_clientside.clientside, {
 
 			// Return figure
 			if (graph == "Resource usage") {
+				Plotly.newPlot("results-graph", JSON.parse(data[experiment][scheduler][graph]), {'displayModeBar': false})
+			}
+			else if (graph == "Gantt diagram") {
+				Plotly.newPlot("results-graph", JSON.parse(data[experiment][scheduler][graph]), {'displayModeBar': false})
+			}
+			else if (graph == "Jobs throughput") {
+				this.graph_jobs_throughput(scheduler, data[experiment][scheduler][graph])
+			}
+			else if (graph == "Waiting queue") {
+				this.graph_waiting_queue(scheduler, data[experiment][scheduler][graph])
+			}
+			else if (graph == "Cluster history") {
 				Plotly.newPlot("results-graph", JSON.parse(data[experiment][scheduler][graph]), {'displayModeBar': false})
 			}
 			else if (graph == "Jobs utilization") {
@@ -253,6 +411,105 @@ Object.assign(window.dash_clientside.clientside, {
 				Plotly.newPlot('results-graph', traces, layout, {'displayModeBar': false});
 			}
 		}
+	},
+
+	graph_jobs_throughput: function(scheduler, tuple) {
+		let trace = {
+			'type': 'scatter',
+			'x': tuple[0],
+			'y': tuple[1],
+			'mode': 'lines+markers'
+		};
+		let layout = {
+			'title': '<b>Jobs throughput</b><br>' + scheduler,
+			'title_x': 0.5,
+			'xaxis': {'title': '<b>Time (s)</b>'},
+			'yaxis': {'title': '<b>Number of finished jobs</b>'}
+		};
+		Plotly.newPlot('results-graph', [trace], layout, {'displayModeBar': false});
+	},
+
+	graph_all_jobs_throughput: function(data) {
+		let traces = [];
+		for ([scheduler, graphs] of Object.entries(data)) {
+			arrays = graphs['Jobs throughput']
+			traces.push({
+				'type': 'scatter',
+				'mode': 'lines+markers',
+				'name': scheduler,
+				'x': arrays[0],
+				'y': arrays[1]
+			})
+		}
+		let layout = {
+			'title': '<b>All jobs throughput</b><br>',
+			'title_x': 0.5,
+			'xaxis': {'title': '<b>Time (s)</b>'},
+			'yaxis': {'title': '<b>Number of finished jobs</b>'}
+		};
+		Plotly.newPlot('results-graph', traces, layout, {'displayModeBar': false});
+	},
+
+	graph_waiting_queue: function(scheduler, tuple) {
+		let trace = {
+			'type': 'scatter',
+			'x': tuple[0],
+			'y': tuple[1],
+			'mode': 'lines+markers'
+		};
+		let layout = {
+			'title': '<b>Number of jobs inside waiting queue per checkpoint</b><br>{self.cluster.scheduler.name}' + scheduler,
+			'title_x': 0.5,
+			'xaxis': {'title': '<b>Time (s)</b>'},
+			'yaxis': {'title': '<b>Number of waiting jobs</b>'}
+		};
+		Plotly.newPlot('results-graph', [trace], layout, {'displayModeBar': false});
+	},
+
+	graph_all_waiting_queues: function(data) {
+		let traces = [];
+		for ([scheduler, graphs] of Object.entries(data)) {
+			arrays = graphs['Waiting queue']
+			traces.push({
+				'type': 'scatter',
+				'mode': 'lines+markers',
+				'name': scheduler,
+				'x': arrays[0],
+				'y': arrays[1]
+			})
+		}
+		let layout = {
+			'title': '<b>All waiting queues</b><br>',
+			'title_x': 0.5,
+			'xaxis': {'title': '<b>Time (s)</b>'},
+			'yaxis': {'title': '<b>Number of waiting jobs</b>'}
+		};
+		Plotly.newPlot('results-graph', traces, layout, {'displayModeBar': false});
+	},
+
+	graph_all_unused_cores: function(data) {
+		let traces = [];
+		let ymax = -1;
+		for ([scheduler, graphs] of Object.entries(data)) {
+			arrays = graphs['Unused cores']
+			if (ymax == -1)
+				ymax = arrays[1][arrays[1].length - 1];
+
+			traces.push({
+				'type': 'scatter',
+				'mode': 'lines+markers',
+				'name': scheduler,
+				'x': arrays[0],
+				'y': arrays[1]
+			})
+		}
+		let layout = {
+			'title': '<b>All unused cores</b><br>',
+			'title_x': 0.5,
+			'xaxis': {'title': '<b>Time (s)</b>'},
+			'yaxis': {'title': '<b>Number of unused cores</b>', 'tickmode': 'array', 'tickvals': [0, ymax]}
+		};
+		Plotly.newPlot('results-graph', traces, layout, {'displayModeBar': false});
 	},
 
 	create_all_graph: function(data) {
@@ -630,13 +887,48 @@ Object.assign(window.dash_clientside.clientside, {
 		graph_elem.layout.updatemenus = [];
 
 		Plotly.downloadImage('results-graph', {
-			'format': 'svg',
+			'format': 'png',
 			'height': 1080,
 			'width': 1920,
 			'filename': 'newplot'
 		});
 		
 		graph_elem.layout.updatemenus = updatemenus;
+	},
+
+	results_download_workload: function(hash, data) {
+		if (data === undefined)
+			return window.dash_clientside.no_update;
+
+		let selection = hash.replace('#', '');
+		let arr = selection.split('~')
+
+		if (arr.length != 3)
+			return window.dash_clientside.no_update;
+		else {
+			[exp_tag, sched_tag, graph_tag] = arr;
+
+			if (graph_tag != 'download-workload')
+				return window.dash_clientside.no_update;
+
+			experiment = exp_tag.replace(/_/g, ' ')
+			experiment = experiment.charAt(0).toUpperCase() + experiment.slice(1)
+
+			scheduler = ''
+			for (sched_name of Object.keys(data[experiment])) {
+				sched_name_tagged = sched_name.toLowerCase().replace(/\s+/g, '_')
+				if (sched_name_tagged == sched_tag) {
+					scheduler = sched_name;
+					break;
+				}
+			}
+
+			let workload = data[experiment][scheduler]["Workload"]
+			return {
+				'content': workload,
+				'filename': exp_tag + '.' + sched_tag + '.workload'
+			}
+		}
 	}
 
 })

@@ -9,15 +9,18 @@ import pymongo
 from pymongo.server_api import ServerApi
 import pickle
 from functools import reduce
+from pandas import DataFrame
+from numpy import median as med
+from json import dumps, loads
+
+Heatmap = dict[str, dict[str, Optional[float]]]
 
 
 class LoadManager:
-    """
-    Each load manager manages loads for a specific suite
-    that ran on a specific machine
+    """Class to manage the loads of a specific machine and suite of benchmarks
     """
 
-    def __init__(self, machine, suite=None, rootdir = None):
+    def __init__(self, machine: str, suite: str, rootdir = None):
         """Initialize a LoadManager instance
 
         ⟡ machine ⟡ the name of the machine on which the benchmarks were executed.
@@ -25,29 +28,37 @@ class LoadManager:
         and the name of the partition which was used. For example, 
         machine = "machineA.particionC"
 
-        ⟡ ppn ⟡ the number of processors per node. This is a necessary value to 
-        calculate the nodes that were necessary for each experiment to run
-
         ⟡ suite ⟡ the suite of benchmarks that we experimented on
+
+        ⟡ rootdir ⟡ the root directory to search for the logs, the main search
+        path is {root_dir}/Co-Scheduling/logs/
+
         """
+        self.machine: str = machine
+        self.suite: str = suite
         self.rootdir: Optional[str] = rootdir
 
         if self.rootdir is None:
-            self.rootdir = self.find_rootdir()
+            self.rootdir = os.path.abspath(os.path.join(
+                os.path.dirname(__file__), "../../"
+            ))
 
-        self.machine: str = machine
-        self.suite: Optional[str] = suite
         self.loads: dict[str, Load] = dict()
 
-    def __call__(self, load: str) -> Load:
-        # Else, return the specific instance of load
-        return self.loads[load]
+    def __call__(self, load_name: str) -> Load:
+        """Get a load by its name
+        """
+        return self.loads[load_name]
 
     def __iter__(self):
+        """Iterate through the loads managed when 'in' is called
+        """
         return self.loads.items().__iter__()
 
-    def __contains__(self, load: str) -> bool:
-        return load in self.loads
+    def __contains__(self, load_name: str) -> bool:
+        """Return true if a Load instance with load_name name is being managed
+        """
+        return load_name in self.loads
 
     def __repr__(self) -> str:
         return "\033[1mLoads currently being managed\033[0m\n" + str(list(self.loads.keys()))
@@ -55,73 +66,97 @@ class LoadManager:
     def __str__(self) -> str:
         return "\033[1mLoads currently being managed\033[0m\n" + str(list(self.loads.keys()))
 
-
-    def __getitem__(self, keys) -> 'LoadManager':
+    def __getitem__(self, keys: tuple) -> 'LoadManager':
         """Get a load manager that manages a subset of loads; the subset is keys
         """
 
-        ret_lm = self.deepcopy()
+        # Create a new LoadManager instance
+        new_lm = LoadManager(machine=self.machine, 
+                             suite=self.suite,
+                             rootdir=self.rootdir)
 
-        # Remove all the loads that are not in keys
-        for load in self.loads:
-            if load not in keys:
-                ret_lm.loads.pop(load)
+        # Store only the loads that they appear in list
+        for name, load in self.loads.items():
+            if name in keys:
+                # Get a fresh copy of the accepted load
+                copy_load = load.deepcopy()
 
-        # Also do the same for coloads
-        for ret_load in ret_lm.loads:
-            coloads_removing = list()
-            for ret_coload in ret_lm(ret_load).coloads:
-                if ret_coload not in keys:
-                    coloads_removing.append(ret_coload)
-            for ret_coload in coloads_removing:
-                ret_lm(ret_load).coloads.pop(ret_coload)
+                # Remove unecessary co-loads
+                unecessary_coloads: list[str] = list()
+                for co_name in copy_load.coscheduled_timelogs.keys():
+                    if co_name not in keys:
+                        #copy_load.coscheduled_timelogs.pop(co_name)
+                        unecessary_coloads.append(co_name)
 
-        return ret_lm
+                for co_name in unecessary_coloads:
+                    copy_load.coscheduled_timelogs.pop(co_name)
 
-    def __add__(self, lm) -> 'LoadManager':
+                # Add new load in the new load manager
+                new_lm.loads[name] = copy_load
 
-        ret_lm = LoadManager(self.machine, self.suite)
-        # ret_lm.suite += "/" + lm.suite
+        return new_lm
 
-        # Return an empty load manager
-        if self.machine != lm.machine:
-            return ret_lm
+    def __add__(self, other_lm: 'LoadManager') -> 'LoadManager':
+        """Return a new LoadManager instance when they are added together
+        """
+
+        # Create a new instance of LoadManager
+        new_lm = LoadManager(machine=self.machine, suite=self.suite)
+
+        # If the logs were recorded on different machines return an empty load
+        # manager
+        if self.machine != other_lm.machine:
+            return new_lm
 
         # 1. Create a deep copy of the current load manager
         # by copying all the Loads
-        for load in self.loads:
-            ret_lm.loads.update({load: self.loads[load].deepcopy()})
+        for name, load in self.loads.items():
+            new_lm.loads[name] = load.deepcopy()
+
+        # 2. If the new suite name is not in the list of managed suites of the
+        # current LoadManager extend it. If it is the return a copy of the
+        # original LoadManager
+        if other_lm.suite not in self.suite.split(","):
+            new_lm.suite += f",{other_lm.suite}"
 
         # 2. Add new Loads to our copied LoadManager instance if there aren't
         # or update our loads' coloads
-        for load, _ in lm:
-            if load not in ret_lm.loads:
-                # If it doesn't exist then add new load
-                ret_lm.loads.update({load: lm(load).deepcopy()})
+        for other_name, other_load in other_lm:
+            # If it doesn't exist then add new load
+            if other_name not in new_lm.loads.keys():
+                new_lm.loads[other_name] = other_load.deepcopy()
             else:
-                # If it does update the coloads of our ret_lm
-                for coload in lm(load).coloads:
-                    if coload not in ret_lm(load).coloads:
-                        ret_lm(load).coloads[coload] = lm(load).coloads[coload].copy()
+                # The load exists in both load managers
+                name = other_name
 
-        return ret_lm
+                # If it introduces any new co-scheduled timelogs
+                for other_coname, other_cologs in other_load.coscheduled_timelogs.items():
+                    if other_coname not in new_lm(name).coscheduled_timelogs:
+                        # Setup an empty list for the new co-scheduled logs
+                        new_lm(name).coscheduled_timelogs[other_coname] = list()
+                        # Get a copy of the logs
+                        new_lm(name).coscheduled_timelogs[other_coname].extend(
+                                other_cologs.copy()
+                        )
 
-    def __iadd__(self, lm) -> 'LoadManager':
+        return new_lm
+
+    def __iadd__(self, lm: 'LoadManager') -> 'LoadManager':
         return self.__add__(lm)
 
     def deepcopy(self) -> 'LoadManager':
         """Return a deepcopy of the load manager
         """
-        ret_lm = LoadManager(machine=self.machine, suite=self.suite)
-        for load in self.loads:
-            ret_lm.loads[load] = self.loads[load].deepcopy()
-        return ret_lm
+        # Create a new instance of LoadManager
+        new_lm = LoadManager(machine=self.machine, 
+                             suite=self.suite,
+                             rootdir=self.rootdir)
 
-    def find_rootdir(self) -> str:
-        return glob(
-                os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), '..', '..')
-                ), recursive=True)[0]
+        # Deepcopy all the loads that are currently being managed
+        for name, load in self.loads.items():
+            new_lm.loads[name] = load.deepcopy()
+
+        return new_lm
 
     @staticmethod
     def to_seconds(runtime) -> float:
@@ -132,39 +167,36 @@ class LoadManager:
         return sec
 
     @staticmethod
-    def init_compact(cmp_dir_bundle) -> tuple[str, str, list[float]]:
+    def init_compact(cmp_dir) -> tuple[str, int, list[float]]:
         """Gather all the necessary data from the compact experiments,
-        create each load and initialize their execution time bundles
+        create each load and initialize their execution timelogs
 
-        ⟡ runs_dir ⟡ the directory to which the output logs of the
+        ⟡ cmp_dir ⟡ the directory to which the output logs of the
         experiments are saved
         """
 
-        # Deconstruct input
-        suite, cmp_dir = cmp_dir_bundle
-
         # Get the name of a load from the directory's name
         load = os.path.basename(cmp_dir).replace("_cmp", "")
-        # Create the corresponding Load
-        # self.loads[load] = Load(load)
 
         # Check if the log file for the specific
         # load exists
         try:
             files = os.listdir(cmp_dir)
-            file = list(filter(lambda f: "_cmp" in f, files))[0]
-        except IndexError:
+            file = list(filter(lambda f: ".out" in f, files))[0]
+        except:
             # If not print that nothing was found
             # and continue to the next directory
             print(f"No log file found inside {cmp_dir}")
-            return load, suite, []
+            return load, -1, []
 
-        # Open the log file of the compact
-        # experiment on the load
+        # Open the log file
         fd = open(cmp_dir + "/" + file, "r")
 
+        num_of_processes = -1
         time_logs = list()
         for line in fd.readlines():
+            if 'Total number of processes' in line or 'Total processes' in line:
+                num_of_processes = int(line.split()[-1])
             if "Time in seconds" in line:
                 time_logs.append(float(line.split()[-1]))
             if "Overall Time:" in line:
@@ -172,19 +204,17 @@ class LoadManager:
 
         fd.close()
 
-        return load, suite, time_logs
+        return load, num_of_processes, time_logs
 
     @staticmethod
     def init_coschedule(cos_dir) -> list[tuple[str, str, list[float]]]:
-        """Get the execution times of a load and coload in a coscheduled
+        """Get the execution time logs of a load and coload in a coscheduled
         experiment. The function is static because it is called in parallel
         and also because logically it can be called beside's a LoadManager's
         instantiation.
 
-        ⟡ cos_dir_bundle ⟡ provide the suite and the directory of the
-        coscheduled experiment; based on the suite we can define different
-        tactics to extract the run times of the load and coload; based
-        on the directory we know were to find the logs of the experiment
+        ⟡ cos_dir ⟡ the directory where the time logs for the experiment for
+        each load are stored
 
         ⟡⟡ returnVal ⟡⟡ A list with the following scheme:
         [
@@ -197,10 +227,7 @@ class LoadManager:
         The definition of keys would overlap with each other.
         """
 
-        # A list will be returned
-        # A dictionary was avoided because of how many
-        # coscheduled experiments have the same benchmarks
-        # as load and coload
+        # The list that will be returned
         out = list()
 
         # Discern the individual names of the loads
@@ -250,8 +277,7 @@ class LoadManager:
                 # of the second load
                 second_files = list(files_to_remove)
 
-        # f_l_times, f_load_times, f_load_cos_times
-        # first_time_logs = []
+        # Gather all the time-logs for the first load
         f_load_cos_times = list()
         for file in first_files:
             logfile_times = list()
@@ -263,7 +289,7 @@ class LoadManager:
                         logfile_times.append(LoadManager.to_seconds(line.split()[-1]))
             f_load_cos_times.append(logfile_times)
 
-        # second_time_logs = []
+        # Gather all the time-logs for the second load
         s_load_cos_times = list()
         for file in second_files:
             logfile_times = list()
@@ -288,10 +314,10 @@ class LoadManager:
 
     def init_loads(self, runs_dir=None) -> None:
         """Create and initialize the time bundles of loads of a specified
-        benchmark suite on a specified machine. Firstly, it creates the
-        loads. Secondly, it populates their compact run time bundles.
+        benchmark suite on a specific machine. Firstly, it creates the
+        loads. Secondly, it populates their compact execution time logs.
         Lastly, it bonds together different loads based on the coscheduled
-        experiments that were ran and saves their run time bundles for
+        experiments that were ran and saves their execution time logs for
         each pair.
 
         ⟡ runs_dir ⟡ if a user needs to point manually where the loads are
@@ -308,30 +334,35 @@ class LoadManager:
         # get their compact counterparts from their
         # respective direcories
         if "_" in self.suite:
-            compact_dirs_bundle = list()
+            compact_dirs = list()
             masks = os.listdir(f"{runs_dir}/{self.machine}/{self.suite}")
+
             for suite in self.suite.split("_"):
-                compact_dirs_bundle.extend([
-                    (suite, f"{runs_dir}/{self.machine}/{suite}/{dire}")
+                compact_dirs.extend([
+                    f"{runs_dir}/{self.machine}/{suite}/{dire}"
                     for dire in os.listdir(f"{runs_dir}/{self.machine}/{suite}")
                     if '_cmp' in dire and
                     reduce(lambda a, b: a or b, map(lambda d: dire.replace("_cmp", "") in d, masks))
                 ])
         else:
             # Get the compact experiments' directories
-            compact_dirs_bundle = [
-                (self.suite, f"{runs_dir}/{self.machine}/{self.suite}/{dire}")
+            compact_dirs = [
+                f"{runs_dir}/{self.machine}/{self.suite}/{dire}"
                 for dire in os.listdir(f"{runs_dir}/{self.machine}/{self.suite}")
                 if '_cmp' in dire
             ]
 
         # Gather all the data from the compact runs of each load
         with ProcessPoolExecutor() as pool:
-            res = pool.map(LoadManager.init_compact, compact_dirs_bundle)
-            for name, suite, time_logs in res:
+            res = pool.map(LoadManager.init_compact, compact_dirs)
+            for name, num_of_processes, time_logs in res:
                 if time_logs != []:
-                    self.loads[name] = Load(name, suite)
-                    self.loads[name].compact_time_bundle = time_logs
+                    self.loads[name] = Load(load_name=name,
+                                            num_of_processes=num_of_processes,
+                                            machine=self.machine, 
+                                            suite=self.suite)
+
+                    self.loads[name].compact_timelogs = time_logs
 
         # Get the coschedule experiments' directories
         coschedule_dirs = [
@@ -361,8 +392,7 @@ class LoadManager:
                     pass
 
     def profiling_data(self, ppn, profiling_dir=None) -> None:
-
-        """Gather all the perf and mpiP data and save them to their
+        """Gather all the perf and mpi attributes and save them to their
         respective loads
 
         ⟡ ppn ⟡ processors per node; used to calculate the nodes binded
@@ -373,12 +403,8 @@ class LoadManager:
         """
 
         # If the directory where all the perf and mpiP are kept is not
-        # manually provided by the user then search for the project's
-        # root directory. If rootdir already has a value then proceed
-        # with the definition of profiling_dir
+        # manually provided by the user then use the project's root directory.
         if profiling_dir is None:
-            if self.rootdir is None:
-                self.find_rootdir()
             profiling_dir = f"{self.rootdir}/Performance_Counters/logs"
 
         # Setup the logs directory for the specific machine
@@ -423,7 +449,7 @@ class LoadManager:
                 self.loads[load].dpops = dpops / nodes_binded
                 self.loads[load].bytes_transferred = bytes_transferred / nodes_binded
 
-            except Exception:
+            except:
                 print(f"\033[33m{load} -> EXTRACTED/PERF_COUNTERS: File doesn't exist\033[0m")
 
             # Open and get information about the compute and MPI times
@@ -436,12 +462,11 @@ class LoadManager:
                 fd.close()
 
                 # Compute time = app_time - mpi_time
-                self.loads[load].compute_time = app_time - mpi_time
-                self.loads[load].mpi_time = mpi_time
+                mpi_time = mpi_time
 
                 # Also add the percentage
-                self.loads[load].compute_perc = (app_time - mpi_time) / app_time
-                self.loads[load].mpi_perc = mpi_time / app_time
+                self.loads[load].compute_time_norm = (app_time - mpi_time) / app_time
+                self.loads[load].mpi_time_norm = mpi_time / app_time
 
             except Exception:
                 print(f"\033[33m{load} -> EXTRACTED/LOAD_AGGR_TIME : File doesn't exist\033[0m")
@@ -458,7 +483,7 @@ class LoadManager:
                     mpi_cmd = f"mpi_{mpi_cmd.lower()}"
                     val = int(float(val))
                     # Save the values
-                    self.loads[load].noc[mpi_cmd] = val
+                    self.loads[load].mpi_noc[mpi_cmd] = val
                 fd.close()
 
             except Exception:
@@ -473,7 +498,7 @@ class LoadManager:
                     mpi_cmd = f"mpi_{mpi_cmd.lower()}"
                     val = float(val)
                     # Save the values
-                    self.loads[load].atime[mpi_cmd] = val
+                    self.loads[load].mpi_atime[mpi_cmd] = val
                 fd.close()
 
             except Exception:
@@ -488,11 +513,30 @@ class LoadManager:
                     mpi_cmd = f"mpi_{mpi_cmd.lower()}"
                     val = int(float(val))
                     # Save the values
-                    self.loads[load].abytes[mpi_cmd] = val
+                    self.loads[load].mpi_abytes[mpi_cmd] = val
                 fd.close()
 
             except Exception:
                 print(f"\033[33m{load} -> EXTRACTED/MPI_CMDS_BYTES : File doesn't exist\033[0m")
+
+    def export_to_json(self):
+        repres =\
+        {
+                "machine": self.machine,
+                "suite": self.suite,
+                "loads": [
+                    load.to_json() for load in self.loads.values()
+                ]
+        }
+
+        with open(f"lm-{self.machine}-{self.suite}.json", "w") as fd:
+            fd.write(dumps(repres))
+
+    def import_from_json(self, file: Optional[str] = None):
+        if file is None:
+            print("Can't build LoadManager if no file is given")
+        pass
+
 
     def export_to_db(self, 
                      host="localhost", 
@@ -530,12 +574,12 @@ class LoadManager:
         coll = db[collection]
 
         # Add or update a load
-        for load in self.loads:
+        for name, load in self:
             # Create the id of the load
             _id = {
-                "machine": self.machine,
-                "suite": self.loads[load].suite,
-                "load": load
+                "machine": load.machine,
+                "suite": load.suite,
+                "load": name
             }
 
             # First check if the load already exists in
@@ -547,9 +591,10 @@ class LoadManager:
 
             if findings != []:
                 # If the load exists then update all occurencies
-                coll.update_many(query, {"$set": {"bin": pickle.dumps(self.loads[load])}})
+                #coll.update_many(query, {"$set": {"bin": pickle.dumps(self.loads[load])}})
+                coll.update_many(query, {"$set": {"repres": load.to_json()}})
             else:
-                coll.insert_one({"_id": _id,  "bin": pickle.dumps(self.loads[load])})
+                coll.insert_one({"_id": _id,  "repres": load.to_json()})
 
     def import_from_db(self, 
                        host="localhost", 
@@ -591,10 +636,11 @@ class LoadManager:
             query = { "_id.machine": self.machine }
 
         for doc in coll.find(query):
-            load = pickle.loads(doc["bin"])
-            load.coloads_median_speedup = dict()
-            for coload_name in load.coloads:
-                load.set_median_speedup(coload_name)
+            # load = pickle.loads(doc["bin"])
+            load = Load.from_json(doc["repres"])
+            # load.coloads_median_speedup = dict()
+            # for coload_name in load.coloads:
+            #     load.set_median_speedup(coload_name)
             self.loads[doc["_id"]["load"]] = load
 
         # Filter out coloads
@@ -602,8 +648,119 @@ class LoadManager:
 
             correct_coloads = dict()
 
-            for coload_name in load.coloads:
+            for coload_name in load.coscheduled_timelogs:
                 if coload_name in self.loads:
-                    correct_coloads[coload_name] = load.coloads[coload_name]
+                    correct_coloads[coload_name] = load.coscheduled_timelogs[coload_name]
 
-            load.coloads = correct_coloads
+            load.coscheduled_timelogs = correct_coloads
+
+    def export_coschedules(self) -> DataFrame:
+        """Export the co-scheduled load names and their execution time with
+        respect to one another.
+        """
+        columns = [
+                "name_A",
+                "procs_A",
+                "compact_A",
+                "name_B",
+                "procs_B",
+                "compact_B",
+                "co_A_B",
+                "co_B_A"
+        ]
+
+        data: list[list] = list()
+        load_names = sorted(self.loads.keys())
+
+        for i, name in enumerate(load_names):
+
+            load = self.loads[name]
+
+            for co_name in load_names[i:]:
+
+                co_load = self.loads[co_name]
+            
+                if co_name not in load.coscheduled_timelogs.keys():
+                    co_A_B = None
+                    co_B_A = None
+                else:
+                    if name != co_name:
+                        co_A_B = load.get_med_time(co_load)
+                        co_B_A = co_load.get_med_time(load)
+                    else:
+                        co_A_B = float(med(load.coscheduled_timelogs[co_name][1]))
+                        co_B_A = float(med(load.coscheduled_timelogs[co_name][0]))
+
+
+                data.append([
+                    name, 
+                    load.num_of_processes,
+                    load.get_med_time(), 
+                    co_name, 
+                    co_load.num_of_processes,
+                    co_load.get_med_time(),
+                    co_A_B,
+                    co_B_A
+                ])
+
+        return DataFrame(data=data, columns=columns)
+
+    def export_ml_table(self) -> DataFrame:
+        """Export a DataFrame for the machine learning model to train
+        """
+
+        columns = [
+                "names",
+                "time A",
+                "mpi time normalized A",
+                "ipc A",
+                "FLOPS A",
+                "BW A",
+                "time B",
+                "mpi time normalized B",
+                "ipc B",
+                "FLOPS B",
+                "BW B",
+                "speedup"
+        ]
+
+        data: list[list] = list()
+
+        for name, load in self.loads.items():
+
+            for co_name, co_load in self.loads.items():
+
+                # For each possible co-schedule record the outcome
+                load_data: list = list()
+
+                # Their names in order to discern them from other pairs
+                load_data.append(f"{name}_{co_name}")
+
+                # Add both tags
+                load_data.extend(load.get_tag())
+                load_data.extend(co_load.get_tag())
+
+                # If we have their co-scheduled speedup then put the value
+                if co_name in load.coscheduled_timelogs:
+                    load_data.append(load.get_med_speedup(co_name))
+                # If we do not then add a None value to show that it's empty
+                else:
+                    load_data.append(None)
+
+                data.append(load_data)
+
+        return DataFrame(data=data, columns=columns)
+
+    def export_heatmap(self) -> Heatmap:
+
+        heatmap: Heatmap = dict()
+
+        for name, load in self.loads.items():
+            heatmap[name] = dict()
+            for co_name, co_load in self.loads.items():
+                try:
+                    heatmap[name][co_name] = load.get_med_speedup(co_load)
+                except:
+                    heatmap[name][co_name] = None
+
+        return heatmap

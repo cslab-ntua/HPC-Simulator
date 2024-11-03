@@ -1,1 +1,1 @@
-from .jobs import Job, EmptyJob
+from .jobs import Job, JobCharacterization

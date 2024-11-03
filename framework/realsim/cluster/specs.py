@@ -1,9 +1,0 @@
-SPECS = dict()
-SPECS["aris.compute"] = {"nodes": 426, "ppn": 20}
-SPECS["marconi"] = {"nodes": 32, "ppn": 48}
-SPECS["leonardo"] = {"nodes": 3456, "ppn": 32}
-SPECS["grid5000.grenoble.dahu"] = {"nodes": 32, "ppn": 16}
-SPECS["grid5000.nancy.gros"] = {"nodes": 124, "ppn": 18}
-SPECS["grid5000.rennes.paravance"] = {"nodes": 72, "ppn": 8}
-SPECS["iccs-g5k.nancy.gros"] = {"nodes": 124, "ppn": 18}
-SPECS["iccs-g5k.rennes.paravance"] = {"nodes": 72, "ppn": 8}

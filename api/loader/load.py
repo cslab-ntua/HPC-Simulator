@@ -1,301 +1,314 @@
-from typing import Optional
+from typing import Optional, TypeVar
 from numpy import average as avg
 from numpy import median
+from json import dumps, loads
+
+T = TypeVar("T", 'Load', str)
 
 
 class Load:
+    """Load is a class that stores all the information gained by the logs of
+    past runs for a specific benchmark; be it executing exclusively or
+    resource-sharing with another benchmark.
+    
+    The information stored is:
+    1. General information about the name, the number of processes needed, the
+    machine it ran on and benchmark suite
+    2. The exclusive and resource sharing execution times for each pairing
+    3. Performance counters deemed necessary
+    4. MPI events deemed necessary
+    """
 
-    def __init__(self, full_load_name: str, suite: Optional[str] = None):
+    def __init__(self, 
+                 load_name: str, 
+                 num_of_processes: int,
+                 machine: str,
+                 suite: str):
 
-        # Load's full name and products
-        self.full_load_name = full_load_name
-        try:
-            self.benchmark = full_load_name.split('.')[0]
-            self.cclass = full_load_name.split('.')[1]
-            self.num_of_processes = int(full_load_name.split('.')[2])
-        except Exception:
-            pass
-
-        # Load's suite
+        # Load general information
+        self.load_name = load_name
+        self.num_of_processes = num_of_processes
+        self.machine = machine
         self.suite = suite
 
-        # Load's compact attributes
-        self.compact_time_bundle = []
+        # Load's time in compact exclusive execution
+        # and co-scheduled with other logs
+        self.compact_timelogs: list[float] = []
+        self.coscheduled_timelogs: dict[str, list] = dict()
 
         # Perf events
-        self.dpops = 0
-        self.bytes_transferred = 0
-        self.ipc = 0
+        self.dpops: int = 0
+        self.bytes_transferred: int = 0
+        self.ipc: float = 0
 
-        # MPI features
-        # MPI overall time
-        self.compute_time = 0
-        self.mpi_time = 0
-        self.compute_perc = 0
-        self.mpi_perc = 0
+        # MPI attributes
+        # General normalized timers
+        self.compute_time_norm: float = 0
+        self.mpi_time_norm: float = 0
 
+        # MPI events' names
+        mpi_events = [
+                "mpi_allgather",
+                "mpi_allreduce",
+                "mpi_alltoall",
+                "mpi_barrier",
+                "mpi_bcast",
+                "mpi_comm_dup",
+                "mpi_comm_free",
+                "mpi_comm_split",
+                "mpi_dims_create",
+                "mpi_irecv",
+                "mpi_isend",
+                "mpi_recv",
+                "mpi_reduce",
+                "mpi_scan",
+                "mpi_send",
+                "mpi_wait",
+                "mpi_waitall"
+        ]
         # MPI events : number of calls
-        self.noc = dict()
-        self.noc["mpi_allgather"] = 0
-        self.noc["mpi_allreduce"] = 0
-        self.noc["mpi_alltoall"] = 0
-        self.noc["mpi_barrier"] = 0
-        self.noc["mpi_bcast"] = 0
-        self.noc["mpi_comm_dup"] = 0
-        self.noc["mpi_comm_free"] = 0
-        self.noc["mpi_comm_split"] = 0
-        self.noc["mpi_dims_create"] = 0
-        self.noc["mpi_irecv"] = 0
-        self.noc["mpi_isend"] = 0
-        self.noc["mpi_recv"] = 0
-        self.noc["mpi_reduce"] = 0
-        self.noc["mpi_scan"] = 0
-        self.noc["mpi_send"] = 0
-        self.noc["mpi_wait"] = 0
-        self.noc["mpi_waitall"] = 0
-
+        self.mpi_noc: dict[str, int] = dict()
         # MPI events : aggregated time (milliseconds)
-        self.atime = dict()
-        self.atime["mpi_allgather"] = 0
-        self.atime["mpi_allreduce"] = 0
-        self.atime["mpi_alltoall"] = 0
-        self.atime["mpi_barrier"] = 0
-        self.atime["mpi_bcast"] = 0
-        self.atime["mpi_comm_dup"] = 0
-        self.atime["mpi_comm_free"] = 0
-        self.atime["mpi_comm_split"] = 0
-        self.atime["mpi_dims_create"] = 0
-        self.atime["mpi_irecv"] = 0
-        self.atime["mpi_isend"] = 0
-        self.atime["mpi_recv"] = 0
-        self.atime["mpi_reduce"] = 0
-        self.atime["mpi_scan"] = 0
-        self.atime["mpi_send"] = 0
-        self.atime["mpi_wait"] = 0
-        self.atime["mpi_waitall"] = 0
-
+        self.mpi_atime: dict[str, float] = dict()
         # MPI events : aggregated bytes
-        self.abytes = dict()
-        self.abytes["mpi_allgather"] = 0
-        self.abytes["mpi_allreduce"] = 0
-        self.abytes["mpi_alltoall"] = 0
-        self.abytes["mpi_barrier"] = 0
-        self.abytes["mpi_bcast"] = 0
-        self.abytes["mpi_comm_dup"] = 0
-        self.abytes["mpi_comm_free"] = 0
-        self.abytes["mpi_comm_split"] = 0
-        self.abytes["mpi_dims_create"] = 0
-        self.abytes["mpi_irecv"] = 0
-        self.abytes["mpi_isend"] = 0
-        self.abytes["mpi_recv"] = 0
-        self.abytes["mpi_reduce"] = 0
-        self.abytes["mpi_scan"] = 0
-        self.abytes["mpi_send"] = 0
-        self.abytes["mpi_wait"] = 0
-        self.abytes["mpi_waitall"] = 0
+        self.mpi_abytes: dict[str, int] = dict()
 
-        # Load's coschedule attributes
-        # coloads = dict(coload_full_name: load_coscheduled_time_bundle)
-        self.coloads: dict[str, list] = dict()
-
-        self.coloads_median_speedup: dict[str, float] = dict()
-
-    def __repr__(self) -> str:
-        return self.__str__()
+        for name in mpi_events:
+            self.mpi_noc[name] = 0
+            self.mpi_atime[name] = 0
+            self.mpi_abytes[name] = 0
 
     def __str__(self) -> str:
-        return f"""\033[1mLoad:\033[0m
+        return self.load_name
+
+    def __repr__(self) -> str:
+        return f"""\033[1m{self.load_name}:\033[0m
 ⊙ Suite: {self.suite}
-⊙ Benchmark: {self.benchmark}
-⊙ Class: {self.cclass}
+⊙ Machine: {self.machine}
 ⊙ Number of processes: {self.num_of_processes}
 ⊙ Avg DP FLOPs/s: {(self.get_avg_dp_FLOPS() / 10 ** 9):.4f} GFLOPS
 ⊙ Avg Bytes/s: {(self.get_avg_dram_bandwidth() / 2 ** 30):.4f} GB/s
-⊙ Avg IPC: {self.ipc / self.get_avg()}
-⊙ Coloads: {list(self.coloads.keys())}"""
+⊙ Avg IPC: {self.ipc / self.get_avg_time()}
+⊙ MPI Communication: {(self.mpi_time_norm * 100):.4f}%
+⊙ Coloads: {list(self.coscheduled_timelogs.keys())}"""
 
-    def __call__(self, coload=None) -> list[float]:
-        """Return execution time bundle of load
+    def __call__(self, co_load: Optional[T] = None) -> list[float]:
+        """Get the compact or co-scheduled timelogs for load
 
-        ▛ coload ▟ if coload is given then return the execution time bundle of
-        load when it is coscheduled with coload. If no coload is given return
-        the time bundle of load when it is executed with compact policy
+        ⟡ co_load: can be a Load instance, a string with the name of the load or
+        NoneType. If None the compact timelogs are return. If it is a Load
+        instance or a string with the name of a load then the co-scheduled 
+        timelogs are returned.
         """
-        if coload is None:
-            # Return the time bundle
-            # of compact execution
-            return self.compact_time_bundle
+        if co_load is None:
+            # Return the compact timelogs
+            return self.compact_timelogs
         else:
-            # Return the time bundle when
-            # load is coscheduled with coload
-            return self.coloads[coload]
+            # Return the co-scheduled timelogs
+            return self.coscheduled_timelogs[str(co_load)]
 
-    def __eq__(self, load) -> bool:
-        if not isinstance(load, Load):
+    def __eq__(self, load: object) -> bool:
+        """Return true if a Load instance is equal to ourselves
+
+        ⟡ load: the pythonic object we are comparing to
+        """
+        if type(load) != Load:
+            # If not of the same type return false
             return False
-        return self.full_load_name == load.full_load_name\
-                and self.suite == load.suite\
-                and self.bytes_transferred == load.bytes_transferred\
-                and self.ipc == load.ipc\
-                and self.compact_time_bundle == load.compact_time_bundle\
-                and self.dpops == load.dpops\
-                and self.compute_time == load.compute_time and self.compute_perc == load.compute_perc\
-                and self.mpi_time == load.mpi_time and self.mpi_perc == load.mpi_perc\
-                and self.noc == load.noc\
-                and self.atime == load.atime\
-                and self.abytes == load.abytes\
-                and self.coloads == load.coloads
+        else:
+
+            # Else test the conditions
+            condition = (self.load_name == load.load_name)
+            condition &= (self.num_of_processes == load.num_of_processes)
+            condition &= (self.suite == load.suite)
+            condition &= (self.machine == load.machine)
+            condition &= (self.compact_timelogs == load.compact_timelogs)
+            condition &= (self.coscheduled_timelogs == load.coscheduled_timelogs)
+            condition &= (self.dpops == load.dpops)
+            condition &= (self.bytes_transferred == load.bytes_transferred)
+            condition &= (self.ipc == load.ipc)
+            condition &= (self.compute_time_norm == load.compute_time_norm)
+            condition &= (self.mpi_time_norm == load.mpi_time_norm)
+            condition &= (self.mpi_noc== load.mpi_noc)
+            condition &= (self.mpi_atime== load.mpi_atime)
+            condition &= (self.mpi_abytes == load.mpi_abytes)
+
+            return condition
 
     def deepcopy(self) -> 'Load':
+        """Deepcopy of a Load instance
+        """
 
-        # Create a Load instance
-        ret_load = Load(self.full_load_name, self.suite)
+        # Create a new instance of class Load
+        new_load = Load(load_name=self.load_name,
+                        num_of_processes=self.num_of_processes,
+                        machine=self.machine,
+                        suite=self.suite)
+
+        # Deepcopy the compact timelogs
+        new_load.compact_timelogs.extend(self.compact_timelogs) 
+        # Deepcopy the co-scheduled timelogs
+        for name, value in self.coscheduled_timelogs.items():
+            new_value = list()
+            new_value.extend(value.copy())
+            new_load.coscheduled_timelogs[name] = new_value
 
         # Copy load's attributes to ret_load
-        ret_load.compact_time_bundle = self.compact_time_bundle.copy()
-        ret_load.dpops = self.dpops
-        ret_load.bytes_transferred = self.bytes_transferred
-        ret_load.ipc = self.ipc
-        ret_load.compute_time = self.compute_time
-        ret_load.mpi_time = self.mpi_time
-        ret_load.compute_perc = self.compute_perc
-        ret_load.mpi_perc = self.mpi_perc
+        new_load.dpops = self.dpops
+        new_load.bytes_transferred = self.bytes_transferred
+        new_load.ipc = self.ipc
+        new_load.compute_time_norm = self.compute_time_norm
+        new_load.mpi_time_norm = self.mpi_time_norm
 
         # Deep copy of MPI attributes' dicts
-        ret_load.noc = dict()
-        ret_load.noc.update(self.noc)
-        ret_load.atime = dict()
-        ret_load.atime.update(self.atime)
-        ret_load.abytes = dict()
-        ret_load.abytes.update(self.abytes)
+        for event in self.mpi_noc.keys():
+            new_load.mpi_noc[event] = self.mpi_noc[event]
+            new_load.mpi_atime[event] = self.mpi_atime[event]
+            new_load.mpi_abytes[event] = self.mpi_abytes[event]
 
-        # Deep copy of coloads
-        ret_load.coloads = dict()
-        for coload in self.coloads:
-            key = coload
-            value = self.coloads[key].copy()
-            ret_load.coloads[key] = value
+        return new_load
 
-        return ret_load
+    def get_avg_time(self, co_load: Optional[T] = None) -> float:
+        """Get the average execution time when compact or co-scheduled with
+        another load
 
-    def get_avg(self, coload=None) -> float:
-        """Return the average execution time of a load
-
-        ▛ coload ▟ if coload is given then return the average execution time
-        of the load when it is coscheduled with coload. If no coload is given
-        return the average time of the load when it is executed with
-        compact policy
+        ⟡ co_load: can be a Load instance, a string with the name of the load or
+        NoneType. If None the compact average execution time is returned. If it 
+        is a Load instance or a string with the name of a load then the 
+        average co-scheduled execution time is returned.
         """
-        if coload is None:
-            # Get compact average
-            return float(
-                    avg(self.compact_time_bundle)
-            )
+        if co_load is None:
+            # Get compact average execution time
+            return float( avg(self.compact_timelogs) )
         else:
-            # Get average time when load is
-            # coscheduled with coload
+            # Get co-scheduled average execution time
             return float(
-                    avg(list(map(lambda li: avg(li), self.coloads[coload])))
+
+                    avg(list(map(
+                        lambda logs: avg(logs), 
+                        self.coscheduled_timelogs[str(co_load)]
+                    )))
+
             )
 
-    def get_median(self, coload=None) -> float:
-        """Return the median execution time of a load
+    def get_med_time(self, co_load: Optional[T] = None) -> float:
+        """Get the median execution time when compact or co-scheduled with
+        another load
 
-        ▛ coload ▟ if coload is given then return the median execution time
-        of the load when it is coscheduled with coload. If no coload is given
-        return the median time of the load when it is executed with
-        compact policy
+        ⟡ co_load: can be a Load instance, a string with the name of the load or
+        NoneType. If None the compact median execution time is returned. If it 
+        is a Load instance or a string with the name of a load then the 
+        median co-scheduled execution time is returned.
         """
-        if coload is None:
-            # Get compact median time
-            return float(
-                    median(self.compact_time_bundle)
-            )
+        if co_load is None:
+            # Get compact median execution time
+            return float( median(self.compact_timelogs) )
         else:
-            # Get median time of load
-            # when it's coscheduled with coload
-            return float(
-                    avg(list(map(lambda li: median(li), self.coloads[coload])))
-            )
+            if (self.load_name == str(co_load)):
+                return float(
+                        avg(list(map(
+                            lambda logs: median(logs),
+                            self.coscheduled_timelogs[str(co_load)]
+                        )))
+                )
+            else:
+                concat_list = list()
+                for li in self.coscheduled_timelogs[str(co_load)]:
+                    concat_list += li
+                return float(median(concat_list))
 
-    def get_avg_speedup(self, coload) -> float:
-        """Return the average speedup of a load when coscheduled with coload
+    def get_avg_speedup(self, co_load: T) -> float:
+        """Return the average speedup when co-scheduled with a load
 
-        ▛ coload ▟ the load colocated to the same nodes with load
-
-        ▛ ReturnVal ▟ returns the average speedup of load when coscheduled 
-        with coload
+        ⟡ co_load: the co_scheduled load; Load or str
         """
-        return (self.get_avg() / self.get_avg(coload))
+        return (self.get_avg_time() / self.get_avg_time(str(co_load)))
 
-    def get_median_speedup(self, coload) -> float:
-        """Return the average speedup of a load when coscheduled with coload
+    def get_med_speedup(self, co_load: T) -> float:
+        """Return the median speedup when co-scheduled with a load
 
-        ▛ coload ▟ the load colocated to the same nodes with load
-
-        ▛ ReturnVal ▟ returns the average speedup of load when coscheduled 
-        with coload
+        ⟡ co_load: the co_scheduled load; Load or str
         """
-        return self.coloads_median_speedup[coload]
-
-    def set_median_speedup(self, coload):
-        """Return the average speedup of a load when coscheduled with coload
-
-        ▛ coload ▟ the load colocated to the same nodes with load
-
-        ▛ ReturnVal ▟ returns the average speedup of load when coscheduled 
-        with coload
-        """
-        self.coloads_median_speedup[coload] = (self.get_median() /self.get_median(coload))
-
-    def get_dram_bandwidth_list(self) -> list[float]:
-        """Get the DRAM bandwidth of load for each run
-
-        ▛ ReturnVal ▟ returns a list with the DRAM bandwidth for a load
-        """
-        return list(
-            map(lambda x: self.bytes_transferred / x, self.compact_time_bundle)
-        )
+        return (self.get_med_time() /self.get_med_time(str(co_load)))
 
     def get_avg_dram_bandwidth(self) -> float:
-        """Get the average DRAM bandwidth of a load
-
-        ▛ ReturnVal ▟ returns the average DRAM bandwidth of a load
+        """Get the average DRAM bandwidth
         """
-        return float( avg(self.get_dram_bandwidth_list()) )
+        # Calculate the bandwidth for all the compact time-logs
+        bw_list = list(map(lambda log: 
+                           self.bytes_transferred / log,
+                           self.compact_timelogs))
 
-    def get_dp_FLOPS_list(self) -> list[float]:
-        """Get the double precision FLOPS of load for each run
-
-        ▛ ReturnVal ▟ returns a list with double precision FLOPS for a load
-        """
-        return list(
-            map(lambda x: self.dpops / x, self.compact_time_bundle)
-        )
+        return float( avg(bw_list) )
 
     def get_avg_dp_FLOPS(self) -> float:
-        """Get the average double precision FLOPS of a load
-
-        ▛ ReturnVal ▟ returns the average double precision FLOPS of a load
+        """Get the average double precision FLOPS
         """
-        return float( avg(self.get_dp_FLOPS_list()) )
+        # Calculate the DP-FLOPS for all the compact time-logs
+        dpops_list = list(map(lambda log: 
+                           self.dpops / log,
+                           self.compact_timelogs))
+
+        return float( avg(dpops_list) )
 
     def get_tag(self) -> list:
-        return [self.get_median(), 
-                self.compute_perc, 
-                self.mpi_perc, 
+        return [self.get_med_time(), 
+                self.mpi_time_norm, 
                 self.ipc, 
                 self.get_avg_dp_FLOPS(), 
                 self.get_avg_dram_bandwidth()]
 
-    def set_coload(self, coload, time_bundle=[]) -> None:
-        """Save the name of a coscheduled load and the execution time for each
+    def set_coload(self, co_load: T, time_bundle=[]) -> None:
+        """Store the name of a co-scheduled load and the execution time for each
         run of the load
-
-        ▛ coload ▟ the load colocated to the same nodes with load
-
-        ▛ time_bundle ▟ the execution times for each run of the load
-
-        ▛ ReturnVal ▟ noreturn
         """
-        self.coloads[coload] = time_bundle
+        self.coscheduled_timelogs[str(co_load)] = time_bundle
+
+    def to_json(self) -> str:
+        repres =\
+        {
+                "load_name": self.load_name,
+                "num_of_processes": self.num_of_processes,
+                "machine": self.machine,
+                "suite": self.suite,
+                "compact_timelogs": self.compact_timelogs,
+                "coscheduled_timelogs": self.coscheduled_timelogs,
+                "dpops": self.dpops,
+                "bytes_transferred": self.bytes_transferred,
+                "ipc": self.ipc,
+                "compute_time_norm": self.compute_time_norm,
+                "mpi_time_norm": self.mpi_time_norm
+        }
+        return dumps(repres)
+
+    def inject_json(self, json_repres: str) -> None:
+        repres = loads(json_repres)
+        self.load_name = repres["load_name"]
+        self.num_of_processes = repres["num_of_processes"]
+        self.machine = repres["machine"]
+        self.suite = repres["suite"]
+        self.compact_timelogs = repres["compact_timelogs"]
+        self.coscheduled_timelogs = repres["coscheduled_timelogs"]
+        self.dpops = repres["dpops"]
+        self.bytes_transferred = repres["bytes_transferred"]
+        self.ipc = repres["ipc"]
+        self.compute_time_norm = repres["compute_time_norm"]
+        self.mpi_time_norm = repres["mpi_time_norm"]
+
+    @classmethod
+    def from_json(cls, json_repres: str) -> 'Load':
+        load = Load('', 0, '', '')
+        repres = loads(json_repres)
+        load.load_name = repres["load_name"]
+        load.num_of_processes = repres["num_of_processes"]
+        load.machine = repres["machine"]
+        load.suite = repres["suite"]
+        load.compact_timelogs = repres["compact_timelogs"]
+        load.coscheduled_timelogs = repres["coscheduled_timelogs"]
+        load.dpops = repres["dpops"]
+        load.bytes_transferred = repres["bytes_transferred"]
+        load.ipc = repres["ipc"]
+        load.compute_time_norm = repres["compute_time_norm"]
+        load.mpi_time_norm = repres["mpi_time_norm"]
+
+        return load

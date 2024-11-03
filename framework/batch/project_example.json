@@ -1,0 +1,43 @@
+{
+	"name": "Project Name",
+	"description": "Description [Optional]",
+	"workloads": [
+		{
+			"dir": "Path to directory of compact and coschedules",
+			"load-manager": "Path to a pickled and baked LoadManager instance to build jobs from",
+			"db": "Database url",
+			"loads-machine": "Name of machine",
+			"loads-suite": "Name of suite",
+			"heatmap": "Using a user specified heatmap (csv format) to overload the heatmap produce by a `load-manager` or `db` instances",
+			"generator": {
+				"type": "Type of generator (or a path to a python file?)",
+				"arg": "Argument (for Random the number of jobs, for Dict the name and frequency of loads and for List the path to the file containing the list)",
+				"distribution": {
+					"type": "Type of the distribution or path to .py file",
+					"arg": "Argument to pass to distribution"
+				}
+			},
+			"cluster": {
+				"nodes": "number (int) of nodes",
+				"socket-conf": "The configuration of a sockets in each node (list of ints)"
+			},
+			"repeat": "number of repeats for the workload"
+		]
+	},
+	"schedulers": {
+		"default": "Sets the default scheduler from name or path to a .py file",
+		"others": [
+			"names or paths to other scheduling algorithms"
+		]
+	},
+	"actions": {
+		"get_gantt_representation": {
+			"workloads": "all or list",
+			"schedulers": "all or list"
+		},
+		"get_workload": {
+			"workloads": "all or list",
+			"schedulers": "all or list"
+		}
+	}
+}

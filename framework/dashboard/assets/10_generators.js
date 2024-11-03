@@ -1,6 +1,6 @@
 window.dash_clientside = Object.assign({}, window.dash_clientside, {
 	clientside: {
-		workloads_events: function(n_clicks=0, m_value, s_options, s_value, data) {
+		datalogs_events: function(n_clicks=0, m_value, s_options, s_value, data) {
 
 			let visible = {'display': 'block'};
 			let invisible = {'display': 'none'};
@@ -12,7 +12,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 
 			let triggered_id = triggered['prop_id'].split('.')[0]
 
-			if (triggered_id == 'workloads-btn') {
+			if (triggered_id == 'datalogs-btn') {
 				if (n_clicks % 2 == 0) {
 					return [button_classes[0], 
 						m_value, 
@@ -57,7 +57,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 			else
 				triggered_id = undefined
 
-			if (triggered_id == 'workloads-machines-select') {
+			if (triggered_id == 'datalogs-machines-select') {
 				if (gen_value == 'Dictionary Generator') {
 					let children = [];
 
@@ -99,7 +99,7 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 				}
 				else return window.dash_clientside.no_update;
 			}
-			else if (triggered_id == 'workloads-suites-select') {
+			else if (triggered_id == 'datalogs-suites-select') {
 				if (gen_value == 'Dictionary Generator') {
 					let children = [];
 
@@ -143,17 +143,25 @@ window.dash_clientside = Object.assign({}, window.dash_clientside, {
 			}
 			else {
 				if (gen_value == 'List Generator') {
-					return {
-						'type': 'Button',
-						'namespace': 'dash_bootstrap_components',
+					let upload_btn = {
+						'type': 'Upload',
+						'namespace': 'dash_core_components',
 						'props': {
-							'children': 'Upload file',
-							'style': {
-								'width': '100%'
-							}
+							'id': 'upload-workload',
+							'children': [{
+								'type': 'Button',
+								'namespace': 'dash_bootstrap_components',
+								'props': {
+									'children': 'Upload file',
+									'style': {'width': '100%'}
+								}
+							}]
 						}
 					};
+
+					return upload_btn;
 				}
+
 				else if (gen_value == 'Dictionary Generator') {
 
 					let children = [];

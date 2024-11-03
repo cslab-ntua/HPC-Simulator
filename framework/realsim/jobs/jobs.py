@@ -8,127 +8,138 @@ sys.path.append(os.path.abspath(
         )
     ))
 
-from api.loader import Load
-from typing import Optional
-from numpy import average as avg
-from numpy import isnan
+from procset import ProcSet
+
+
+class JobCharacterization:
+    COMPACT = 0
+    SPREAD = 1
+    ROBUST = 2
+    FRAIL = 3
+
+class JobState:
+    PENDING = 0
+    EXECUTING = 1
+    FINISHED = 2
+    FAILED = 3
+    ABORTED = 4
 
 
 class Job:
+    """Class that simulates an HPC job
+    """
 
     def __init__(self, 
-                 load: Optional[Load], 
                  job_id: int, 
                  job_name: str, 
                  num_of_processes: int,
-                 binded_cores: int,
-                 half_node_cores: int,
-                 full_node_cores: int,
+                 assigned_hosts: list,
                  remaining_time, 
-                 queued_time, 
+                 submit_time, 
                  waiting_time, 
                  wall_time):
 
-        self.load = load
+        # Important identifiers of the job
         self.job_id = job_id
         self.job_name = job_name
+
+        # Cores/Nodes resources
         self.num_of_processes = num_of_processes
+        self.full_socket_nodes: int = -1
+        self.half_socket_nodes: int = -1
+        self.assigned_hosts = assigned_hosts
+        self.socket_conf = tuple()
+
+        # Time resources
         self.remaining_time = remaining_time
-        self.queued_time = queued_time
+        self.submit_time = submit_time
         self.waiting_time = waiting_time
         self.wall_time = wall_time
-        self.binded_cores = binded_cores
-        self.gave_position = 0
-        self.speedup = 1
+        self.start_time: float = 0.0
+        self.finish_time: float = -1.0
 
-        # Configs for faster simulation
-        self.half_node_cores = half_node_cores
-        self.full_node_cores = full_node_cores
+        # Speedups of job
+        self.sim_speedup: float = 1
+        self.avg_speedup: float = 1
+        self.max_speedup: float = 1
+        self.min_speedup: float = 1
+
+        # Job performance tag
+        self.job_tag = list()
+
+        # Job characterization for schedulers
+        self.job_character = JobCharacterization.COMPACT
+
+        # Job's state
+        self.current_state = JobState.PENDING
+
+        # If head job of waiting queue reaches a certain age then 
+        # change from co-schedule policy to compact allocation policy
+        self.age = 0
+
 
     def __eq__(self, job):
         if not isinstance(job, Job):
             return False
-        return self.load == job.load and self.job_id == job.job_id and self.job_name == job.job_name and self.num_of_processes == job.num_of_processes\
-                and self.remaining_time == job.remaining_time and self.queued_time == job.queued_time\
-                and self.wall_time == job.wall_time and self.speedup == job.speedup
+        return  self.job_id == job.job_id\
+                and self.job_name == job.job_name\
+                and self.num_of_processes == job.num_of_processes\
+                and self.assigned_hosts == job.assigned_hosts\
+                and self.remaining_time == job.remaining_time\
+                and self.submit_time == job.submit_time\
+                and self.wall_time == job.wall_time\
+                and self.start_time == job.start_time\
+                and self.sim_speedup == job.sim_speedup\
+                and self.avg_speedup == job.avg_speedup\
+                and self.max_speedup == job.max_speedup\
+                and self.min_speedup == job.min_speedup\
+                and self.job_tag == job.job_tag\
+                and self.job_character == job.job_character
 
     def __repr__(self) -> str:
-        return "{" + f"{self.job_id}, {self.job_name} : {self.remaining_time}, {self.speedup}, {self.binded_cores}" + "}"
+        #return f"[{self.job_id}:{self.job_name}],(T:{self.remaining_time}),(C:{len(self.assigned_cores)}),(S:{self.sim_speedup})"
+        return f"[{self.job_id}:{self.job_name},T:{self.remaining_time},S:{self.sim_speedup}]"
 
+    def get_avg_speedup(self) -> float:
+        return self.avg_speedup
 
-    def get_speedup(self, cojob):
-        return self.load.get_median_speedup(cojob.job_name)
-        # return avg(self.load.get_speedups(cojob.job_name))
+    def get_max_speedup(self) -> float:
+        return self.max_speedup
 
-    def get_overall_speedup(self):
-        speedups = list()
-        for coload in self.load.coloads:
-            speedups.append(self.load.get_median_speedup(coload))
-        return avg(speedups)
-
-    def get_max_speedup(self):
-        speedups = list()
-        for coload in self.load.coloads:
-            speedups.append(
-                    self.load.get_median_speedup(coload)
-            )
-
-        return max(speedups)
-
-    def ratioed_remaining_time(self, cojob):
-        old_speedup = self.speedup
-        new_speedup = self.get_speedup(cojob)
-        if old_speedup <= 0 or new_speedup <= 0 or isnan(old_speedup) or isnan(new_speedup):
-            raise RuntimeError(f"{old_speedup}, {new_speedup}")
-        self.remaining_time *= (old_speedup / new_speedup)
-        self.speedup = new_speedup
+    def get_min_speedup(self):
+        return self.min_speedup
 
     def deepcopy(self):
         """Return a new instance of Job that is a true copy
         of the original
         """
-        copy = Job(load=self.load,
-                   job_id=self.job_id,
+        copy = Job(job_id=self.job_id,
                    job_name=self.job_name,
                    num_of_processes=self.num_of_processes,
-                   binded_cores=self.binded_cores,
-                   half_node_cores=self.half_node_cores,
-                   full_node_cores=self.full_node_cores,
+                   assigned_hosts=[x for x in self.assigned_hosts],
                    remaining_time=self.remaining_time,
-                   queued_time=self.queued_time,
+                   submit_time=self.submit_time,
                    waiting_time=self.waiting_time,
                    wall_time=self.wall_time)
 
-        copy.gave_position = self.gave_position
-        copy.speedup = self.speedup
+        copy.full_socket_nodes = self.full_socket_nodes
+        copy.half_socket_nodes = self.half_socket_nodes
+        copy.socket_conf = self.socket_conf
+
+        copy.start_time = self.start_time
+        copy.finish_time = self.finish_time
+
+        copy.sim_speedup = self.sim_speedup
+        copy.avg_speedup = self.avg_speedup
+        copy.max_speedup = self.max_speedup
+        copy.min_speedup = self.min_speedup
+
+        copy.current_state = self.current_state
+        copy.job_tag = self.job_tag
+        copy.job_character = self.job_character
+        copy.age = self.age
 
         return copy
 
-
-class EmptyJob(Job):
-
-    def __init__(self, job: Job):
-        Job.__init__(self, None, job.job_id, job.job_name, job.num_of_processes, 
-                     job.binded_cores, -1, -1, None, None, None, None,)
-
-    def __repr__(self) -> str:
-        return "{" + f"{self.job_id}, empty : {self.remaining_time}, {self.binded_cores}" + "}"
-
-    def deepcopy(self):
-        """Return a new instance of Job that is a true copy
-        of the original
-        """
-        copy = EmptyJob(Job(load=None,
-                            job_id=self.job_id,
-                            job_name=self.job_name,
-                            num_of_processes=self.num_of_processes,
-                            binded_cores=self.binded_cores,
-                            half_node_cores=self.half_node_cores,
-                            full_node_cores=self.full_node_cores,
-                            remaining_time=self.remaining_time,
-                            queued_time=self.queued_time,
-                            waiting_time=self.waiting_time,
-                            wall_time=self.wall_time)
-                        )
-
-        return copy
+    def get_signature(self) -> str:
+        return f"{self.job_id}:{self.job_name}"

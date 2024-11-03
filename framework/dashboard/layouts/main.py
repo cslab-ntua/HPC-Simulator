@@ -1,5 +1,6 @@
-from dash import MATCH, ClientsideFunction, Input, Output, State, clientside_callback, dcc, html
+from dash import MATCH, ClientsideFunction, Input, Output, State, clientside_callback, dcc, html, callback
 import dash_bootstrap_components as dbc
+import dash_loading_spinners as dls
 
 from layouts.elements.generator import elem_generator
 from layouts.elements.cluster import elem_cluster
@@ -12,6 +13,7 @@ main_layout = dbc.Container([
 
     # STORE
     dcc.Store(id="main-store", data=main_data, storage_type="memory"),
+    dcc.Download(id='download-workload'),
 
     # EXPORT FIGURES MODAL
     dbc.Modal([
@@ -46,7 +48,8 @@ main_layout = dbc.Container([
 
 
     # RESULTS
-    dbc.Spinner([
+    # dbc.Spinner([
+    dls.GridFade([
         dbc.Modal([
 
             dbc.Container([
@@ -79,7 +82,7 @@ main_layout = dbc.Container([
             ])
             ], is_open=False, id="results-modal", fullscreen=True)
 
-    ], fullscreen=True, type="grow", color="primary"),
+    ], fullscreen=True, color="#3584E4", radius=10),
 
     dbc.Offcanvas(id="results-nav", 
                   title="Select figure",
@@ -177,4 +180,19 @@ clientside_callback(
         Output("results-download-graph", "n_clicks"),
         Input("results-download-graph", "n_clicks"),
         prevent_initial_call=True
+)
+
+# Download workload
+clientside_callback(
+        ClientsideFunction(
+            namespace="clientside",
+            function_name="results_download_workload"
+        ),
+
+        Output("download-workload", "data"),
+        Input("results-graph-select", "hash"),
+        State("results-store", "data"),
+
+        prevent_initial_call=True
+
 )

@@ -1,9 +1,10 @@
 # Global libraries
 import abc
-from numpy.random import seed, randint, random_sample
+from numpy.random import seed
 from time import time_ns
-from typing import Any, TypeVar, Generic
+from typing import TypeVar, Generic
 from collections.abc import Callable
+
 from .__init__ import *
 from math import inf
 
@@ -29,19 +30,19 @@ class AbstractGenerator(abc.ABC, Generic[T]):
     def timer(self, timer: Callable[[], float]):
         self._timer = timer
 
-    def generate_job(self, idx: int, load: Load):
+    def generate_job(self, idx: int, load: Load) -> Job:
         seed(time_ns() % (2**32))
-        return Job(load=load,
-                   job_id=idx,
-                   job_name=load.full_load_name,
+        job =  Job(job_id=idx,
+                   job_name=load.load_name,
                    num_of_processes=load.num_of_processes,
-                   binded_cores=load.num_of_processes,
-                   half_node_cores=-1,
-                   full_node_cores=-1,
-                   remaining_time=load.get_avg(),
-                   queued_time=0,
+                   assigned_hosts=list(),
+                   remaining_time=load.get_med_time(),
+                   submit_time=0,
                    waiting_time=0,
-                   wall_time=(10 * 60))
+                   wall_time=(1.25 * load.get_med_time()))
+        job.job_tag = load.get_tag()
+
+        return job
 
     @abc.abstractmethod
     def generate_jobs_set(self, arg: T) -> list[Job]:

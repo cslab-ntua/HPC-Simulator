@@ -37,30 +37,44 @@ elem_cluster = dbc.Container([
     ], class_name="element-header sticky-top"),
 
     dbc.Row([
-        dbc.Button("To manual configuration", id="cluster-btn")
-        ], class_name="p-3"),
+
+        html.Span("Number of nodes and cores", className="h6"),
+
+        dbc.Row([
+            dbc.Button("To manual configuration", id="cluster-btn")
+            ], class_name="p-3"),
+
+        dbc.Row([
+            dbc.Select(machines, machines[0], id="cluster-machines")
+        ], id="cluster-names-display", style={"display": "block"},
+                class_name="mx-2"),
+
+        dbc.Row([
+            dbc.Col([
+                dbc.InputGroup([
+                    dbc.InputGroupText("nodes", style={"width": "50%"}),
+                    dbc.Input(type="number", min=0, value=0, id="cluster-nodes")
+                ])
+            ], style={"display": "inline-block"}, width=6),
+
+            dbc.Col([
+                dbc.InputGroup([
+                    dbc.InputGroupText("ppn", style={"width": "50%"}),
+                    dbc.Input(type="number", min=0, value=0, id="cluster-ppn")
+                ])
+            ], style={"display": "inline-block"}, width=6),
+
+        ], id="cluster-manual-display", style={"display": "none"}, class_name="mx-2"),
+    ], class_name="element-item m-1 p-2"),
 
     dbc.Row([
-        dbc.Select(machines, machines[0], id="cluster-machines")
-    ], id="cluster-names-display", style={"display": "block"},
-            class_name="mx-2"),
+        html.Span("Queue Options", className="h6"),
+        dbc.InputGroup([
+            dbc.InputGroupText("Waiting queue size", style={"width": "50%"}),
+            dbc.Input(min=-1, value=-1, type="number", id="queue-size")
+        ])
+    ], class_name="element-item m-1 p-2")
 
-    dbc.Row([
-        dbc.Col([
-            dbc.InputGroup([
-                dbc.InputGroupText("nodes", style={"width": "50%"}),
-                dbc.Input(type="number", min=0, value=0, id="cluster-nodes")
-            ])
-        ], style={"display": "inline-block"}, width=6),
-
-        dbc.Col([
-            dbc.InputGroup([
-                dbc.InputGroupText("ppn", style={"width": "50%"}),
-                dbc.Input(type="number", min=0, value=0, id="cluster-ppn")
-            ])
-        ], style={"display": "inline-block"}, width=6),
-
-    ], id="cluster-manual-display", style={"display": "none"}, class_name="mx-2")
 
 ], class_name="element d-flex align-items-strech")
 

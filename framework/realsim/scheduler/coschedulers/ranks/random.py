@@ -1,5 +1,4 @@
-from numpy.random import seed, randint
-from time import time_ns
+from .ranks import RanksCoscheduler
 import os
 import sys
 
@@ -8,26 +7,16 @@ sys.path.append(os.path.abspath(os.path.join(
 )))
 
 from realsim.jobs.jobs import Job
+from realsim.jobs.utils import deepcopy_list
 from realsim.scheduler.coschedulers.ranks.ranks import RanksCoscheduler
+from realsim.cluster.host import Host
 
 
 class RandomRanksCoscheduler(RanksCoscheduler):
 
     name = "Random Ranks Co-Scheduler"
-    descriptions = ""
+    description = """Random co-scheduling using ranks architecture as a fallback
+    to classic scheduling algorithms"""
 
-    def xunits_order(self, xunit: list[Job]) -> float:
-        seed(time_ns() % (2 ** 32))
-        return float(randint(len(self.cluster.waiting_queue)))
-
-    def xunits_candidates_order(self, largest_job: Job, job: Job) -> float:
-        seed(time_ns() % (2 ** 32))
-        return float(randint(len(self.cluster.waiting_queue)))
-
-    def waiting_queue_order(self, job: Job) -> float:
-        seed(time_ns() % (2 ** 32))
-        return float(randint(len(self.cluster.waiting_queue)))
-
-    def wjob_candidates_order(self, job: Job, co_job: Job) -> float:
-        seed(time_ns() % (2 ** 32))
-        return float(randint(len(self.cluster.waiting_queue)))
+    def coloc_condition(self, hostname: str, job: Job) -> float:
+        return float(self.cluster.hosts[hostname].state != Host.IDLE)
