@@ -99,4 +99,5 @@ dependencies:
       - packaging==24.0
       - procset==1.0
       - pymongo==4.9.1
+      - PyYAML==6.0.2
 prefix: /home/stratos/miniforge3/envs/hpc-sim
