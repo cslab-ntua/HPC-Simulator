@@ -90,10 +90,6 @@ class RanksCoscheduler(Coscheduler, ABC):
             if self.allocation(job, self.cluster.half_socket_allocation):
                 deployed = True
                 self.after_deployment()
-            # Compact
-            elif self.compact_allocation(job):
-                deployed = True
-                self.after_deployment()
             else:
                 break
 
