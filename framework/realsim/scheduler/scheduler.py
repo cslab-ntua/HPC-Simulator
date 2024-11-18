@@ -48,7 +48,7 @@ class Scheduler(ABC):
 
         # Properties of the scheduling algorithms
         self.queue_depth = None # None is equivalent to using the whole waiting queue
-        self.backfill_enabled: bool = False # The most basic algorithm will not use backfill
+        self.backfill_enabled: bool = True # The most basic algorithm will not use backfill
         self.backfill_depth = 100 # How far we reach for backfilling
 
     def orig_find_suitable_nodes(self, 

@@ -134,7 +134,7 @@ class RanksCoscheduler(Coscheduler, ABC):
         backfilling_jobs = deepcopy_list(self.cluster.waiting_queue[1:self.backfill_depth+1])
 
         # Ascending sorting by their wall time
-        backfilling_jobs.sort(key=lambda b_job: b_job.wall_time)
+        #backfilling_jobs.sort(key=lambda b_job: b_job.wall_time)
 
         for b_job in backfilling_jobs:
 
@@ -148,11 +148,11 @@ class RanksCoscheduler(Coscheduler, ABC):
                 # elif super().compact_allocation(b_job):
                 #     deployed = True
                 #     self.after_deployment()
-                else:
-                    break
+                # else:
+                #     break
 
-            else:
+            #else:
                 # No other job is capable to backfill based on time
-                break
+                #break
         
         return deployed
