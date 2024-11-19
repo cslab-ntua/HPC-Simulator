@@ -39,7 +39,7 @@ class AbstractGenerator(abc.ABC, Generic[T]):
                    remaining_time=load.get_med_time(),
                    submit_time=0,
                    waiting_time=0,
-                   wall_time=(1.25 * load.get_med_time()))
+                   wall_time=(1.4 * load.get_med_time()))
         job.job_tag = load.get_tag()
 
         return job
