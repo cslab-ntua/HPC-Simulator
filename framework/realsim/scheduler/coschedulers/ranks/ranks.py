@@ -102,18 +102,23 @@ class RanksCoscheduler(Coscheduler, ABC):
         if len(self.cluster.waiting_queue) <= 1:
             return False
 
+        blocked_job = self.cluster.waiting_queue[0]
+
         execution_list = deepcopy_list(self.cluster.execution_list)
         execution_list.sort(key=lambda job: job.wall_time + job.start_time - self.cluster.makespan)
 
-        blocked_job = self.cluster.waiting_queue[0]
 
         # Get all the idle hosts
-        idle_hosts = [host for host in list(self.cluster.hosts.values()) if host.state == Host.IDLE]
+        suitable_nodeprocs, _ = self.find_suitable_nodes(blocked_job.num_of_processes, self.cluster.half_socket_allocation)
+
+        # Get suitable hosts from names
+        suitable_hosts = list(suitable_nodeprocs.keys())
 
         # Find the minimum estimated start time of the job
 
         # Calculate the number of idle hosts needed
-        aggr_hosts = set(idle_hosts)
+        aggr_hosts = set(suitable_hosts)
+
         min_estimated_time = inf
 
         for xjob in execution_list:
@@ -123,6 +128,7 @@ class RanksCoscheduler(Coscheduler, ABC):
             if len(aggr_hosts) >= blocked_job.half_socket_nodes:
                 min_estimated_time = xjob.wall_time - (self.cluster.makespan - xjob.start_time)
                 break
+
 
         # If a job couldn't reserve cores then cancel backfill at this point
         if not min_estimated_time < inf:

@@ -80,7 +80,7 @@ class Scheduler(ABC):
 
     def find_suitable_nodes(self, 
                             req_cores: int, 
-                            socket_conf: tuple) -> dict[str, list[ProcSet]]:
+                            socket_conf: tuple):
         """ Returns hosts and their procsets that a job can use as resources
         + req_cores   : required cores for the job
         + socket_conf : under a certain socket mapping/configuration
@@ -97,13 +97,7 @@ class Scheduler(ABC):
                     for i, p_set in enumerate(host.sockets)]
                 })
 
-        # If the amount of cores needed is covered then return the list of possible
-        # hosts
-        if req_cores <= 0:
-            return to_be_allocated
-        # Else, if not all the cores can be allocated return an empty list
-        else:
-            return {}
+        return to_be_allocated, req_cores <= 0
 
     def host_alloc_condition(self, hostname: str, job: Job) -> float:
         """Condition on which hosts to use first for allocation.
@@ -121,11 +115,11 @@ class Scheduler(ABC):
         job.socket_conf = socket_conf
 
         # Get only the suitable hosts
-        suitable_hosts = self.find_suitable_nodes(job.num_of_processes,
-                                                  socket_conf)
+        suitable_hosts, req_okay = self.find_suitable_nodes(job.num_of_processes, 
+                                                            socket_conf)
 
         # If no suitable hosts where found
-        if suitable_hosts == dict():
+        if not req_okay:
             return False
 
         # Apply the colocation condition

@@ -55,7 +55,7 @@ class Job:
         self.submit_time = submit_time
         self.waiting_time = waiting_time
         self.wall_time = wall_time
-        self.start_time: float = 0.0
+        self.start_time: float = -1.0
         self.finish_time: float = -1.0
 
         # Speedups of job
