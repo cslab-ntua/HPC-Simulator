@@ -93,7 +93,7 @@ class Simulation:
                  # scheduler algorithms bundled with inputs
                  schedulers_bundle):
 
-        self.default = "Conservative Scheduler"
+        self.default = "EASY Scheduler"
         self.executor = ProcessPoolExecutor()
 
         self.manager = Manager()
