@@ -57,7 +57,15 @@ class ComputeEngine:
             # Setup job speedups
             speedups = list(self.db.heatmap[job.job_name].values())
             speedups = [spd for spd in speedups if spd is not None]
-            max_speedup = min_speedup = speedups[0]
+
+            min_speedup = speedups[0]
+
+            max_speedup = self.db.lm.loads[job.job_name].get_med_speedup(co_load=None)
+
+            # if no spread found failback to min speedup
+            if not max_speedup:
+                max_speedup = min_speedup
+
             accumulator = length = 0
             for speedup in speedups:
                 if speedup > max_speedup:

@@ -199,7 +199,7 @@ def parallel_simulations(par_inp):
     # Setup simulation
     sim = Simulation(jobs_set, lm.export_heatmap(),
                      nodes, socket_conf, queue_size,
-                     schedulers_bundle)
+                     schedulers_bundle, lm=lm)
     sim.set_default("Default Scheduler")
 
     # Start simulation
