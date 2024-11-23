@@ -32,8 +32,9 @@ class Load:
         self.suite = suite
 
         # Load's time in compact exclusive execution
-        # and co-scheduled with other logs
+        # spread and co-scheduled with other logs
         self.compact_timelogs: list[float] = []
+        self.spread_timelogs: list[float] = []
         self.coscheduled_timelogs: dict[str, list] = dict()
 
         # Perf events
@@ -92,7 +93,7 @@ class Load:
 ⊙ MPI Communication: {(self.mpi_time_norm * 100):.4f}%
 ⊙ Coloads: {list(self.coscheduled_timelogs.keys())}"""
 
-    def __call__(self, co_load: Optional[T] = None) -> list[float]:
+    def __call__(self, co_load: Optional[T] = None, policy='cmp') -> list[float]:
         """Get the compact or co-scheduled timelogs for load
 
         ⟡ co_load: can be a Load instance, a string with the name of the load or
@@ -101,8 +102,10 @@ class Load:
         timelogs are returned.
         """
         if co_load is None:
-            # Return the compact timelogs
-            return self.compact_timelogs
+            if policy=='cmp':
+                return self.compact_timelogs
+            else:
+                return self.spread_timelogs
         else:
             # Return the co-scheduled timelogs
             return self.coscheduled_timelogs[str(co_load)]
@@ -123,6 +126,7 @@ class Load:
             condition &= (self.suite == load.suite)
             condition &= (self.machine == load.machine)
             condition &= (self.compact_timelogs == load.compact_timelogs)
+            condition &= (self.spread_timelogs == load.spread_timelogs)
             condition &= (self.coscheduled_timelogs == load.coscheduled_timelogs)
             condition &= (self.dpops == load.dpops)
             condition &= (self.bytes_transferred == load.bytes_transferred)
@@ -146,7 +150,8 @@ class Load:
                         suite=self.suite)
 
         # Deepcopy the compact timelogs
-        new_load.compact_timelogs.extend(self.compact_timelogs) 
+        new_load.compact_timelogs.extend(self.compact_timelogs)
+        new_load.spread_timelogs.extend(self.spread_timelogs)
         # Deepcopy the co-scheduled timelogs
         for name, value in self.coscheduled_timelogs.items():
             new_value = list()
@@ -168,8 +173,8 @@ class Load:
 
         return new_load
 
-    def get_avg_time(self, co_load: Optional[T] = None) -> float:
-        """Get the average execution time when compact or co-scheduled with
+    def get_avg_time(self, co_load: Optional[T] = None, policy='cmp') -> float:
+        """Get the average execution time when compact/spread or co-scheduled with
         another load
 
         ⟡ co_load: can be a Load instance, a string with the name of the load or
@@ -178,12 +183,16 @@ class Load:
         average co-scheduled execution time is returned.
         """
         if co_load is None:
-            # Get compact average execution time
-            return float( avg(self.compact_timelogs) )
+            if policy=='cmp':
+                return float( avg(self.compact_timelogs) )
+            else:
+                if self.spread_timelogs:
+                    return float( avg(self.spread_timelogs) )
+                else:
+                    return None
         else:
             # Get co-scheduled average execution time
             return float(
-
                     avg(list(map(
                         lambda logs: avg(logs), 
                         self.coscheduled_timelogs[str(co_load)]
@@ -191,8 +200,8 @@ class Load:
 
             )
 
-    def get_med_time(self, co_load: Optional[T] = None) -> float:
-        """Get the median execution time when compact or co-scheduled with
+    def get_med_time(self, co_load: Optional[T] = None, policy='cmp') -> float:
+        """Get the median execution time when compact/spread or co-scheduled with
         another load
 
         ⟡ co_load: can be a Load instance, a string with the name of the load or
@@ -201,8 +210,13 @@ class Load:
         median co-scheduled execution time is returned.
         """
         if co_load is None:
-            # Get compact median execution time
-            return float( median(self.compact_timelogs) )
+            if policy=='cmp':
+                return float( median(self.compact_timelogs) )
+            else:
+                if self.spread_timelogs:
+                    return float( median(self.spread_timelogs) )
+                else:
+                    return None
         else:
             if (self.load_name == str(co_load)):
                 return float(
@@ -217,42 +231,62 @@ class Load:
                     concat_list += li
                 return float(median(concat_list))
 
-    def get_avg_speedup(self, co_load: T) -> float:
-        """Return the average speedup when co-scheduled with a load
-
-        ⟡ co_load: the co_scheduled load; Load or str
+    def get_avg_speedup(self, co_load: Optional[T] = None) -> float:
+        """Return the average speedup when co-scheduled with a load or spread if None
+                     ⟡ co_load: the co_scheduled load; Load or str
         """
-        return (self.get_avg_time() / self.get_avg_time(str(co_load)))
+        if co_load:
+            return (self.get_avg_time() / self.get_avg_time(str(co_load)))
+        else: # spread
+            try:
+                return (self.get_avg_time() / self.get_avg_time(policy='spd'))
+            except:
+                return None
 
-    def get_med_speedup(self, co_load: T) -> float:
-        """Return the median speedup when co-scheduled with a load
-
-        ⟡ co_load: the co_scheduled load; Load or str
+    def get_med_speedup(self, co_load: Optional[T] = None) -> float:
+        """Return the median speedup when co-scheduled with a load or spread if None
+                     ⟡ co_load: the co_scheduled load; Load or str
         """
-        return (self.get_med_time() /self.get_med_time(str(co_load)))
+        if co_load:
+            return (self.get_med_time() / self.get_med_time(str(co_load)))
+        else: # spread
+            try:
+                return (self.get_med_time() / self.get_med_time(policy='spd'))
+            except:
+                return None
 
-    def get_avg_dram_bandwidth(self) -> float:
+    def get_avg_dram_bandwidth(self, policy='cmp') -> float:
         """Get the average DRAM bandwidth
         """
         # Calculate the bandwidth for all the compact time-logs
-        bw_list = list(map(lambda log: 
+        if policy=='cmp':
+            bw_list = list(map(lambda log: 
                            self.bytes_transferred / log,
                            self.compact_timelogs))
+        else:
+            bw_list = list(map(lambda log: 
+                           self.bytes_transferred / log,
+                           self.spread_timelogs))
 
         return float( avg(bw_list) )
 
-    def get_avg_dp_FLOPS(self) -> float:
+    def get_avg_dp_FLOPS(self, policy='cmp') -> float:
         """Get the average double precision FLOPS
         """
         # Calculate the DP-FLOPS for all the compact time-logs
-        dpops_list = list(map(lambda log: 
+        if policy=='cmp':
+            dpops_list = list(map(lambda log: 
                            self.dpops / log,
                            self.compact_timelogs))
+        else:
+            dpops_list = list(map(lambda log: 
+                           self.dpops / log,
+                           self.spread_timelogs))
 
         return float( avg(dpops_list) )
 
-    def get_tag(self) -> list:
-        return [self.get_med_time(), 
+    def get_tag(self, policy='cmp') -> list:
+        return [self.get_med_time(policy=policy), 
                 self.mpi_time_norm, 
                 self.ipc, 
                 self.get_avg_dp_FLOPS(), 
@@ -272,6 +306,7 @@ class Load:
                 "machine": self.machine,
                 "suite": self.suite,
                 "compact_timelogs": self.compact_timelogs,
+                "spread_timelogs": self.spread_timelogs,
                 "coscheduled_timelogs": self.coscheduled_timelogs,
                 "dpops": self.dpops,
                 "bytes_transferred": self.bytes_transferred,
@@ -288,6 +323,7 @@ class Load:
         self.machine = repres["machine"]
         self.suite = repres["suite"]
         self.compact_timelogs = repres["compact_timelogs"]
+        self.spread_timelogs = repres["spread_timelogs"]
         self.coscheduled_timelogs = repres["coscheduled_timelogs"]
         self.dpops = repres["dpops"]
         self.bytes_transferred = repres["bytes_transferred"]
@@ -304,6 +340,7 @@ class Load:
         load.machine = repres["machine"]
         load.suite = repres["suite"]
         load.compact_timelogs = repres["compact_timelogs"]
+        load.spread_timelogs = repres["spread_timelogs"]
         load.coscheduled_timelogs = repres["coscheduled_timelogs"]
         load.dpops = repres["dpops"]
         load.bytes_transferred = repres["bytes_transferred"]

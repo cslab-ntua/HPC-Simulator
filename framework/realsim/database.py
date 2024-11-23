@@ -44,10 +44,12 @@ class Database:
     def __init__(self, 
                  jobs_set: list[Job], 
                  heatmap: Heatmap = dict(),
-                 engine: Optional[InferenceEngine] = None):
+                 engine: Optional[InferenceEngine] = None,
+                 lm = None):
         self.preloaded_queue = deepcopy_list(jobs_set)
         self.heatmap = heatmap
         self.engine = engine
+        self.lm = lm
 
     def pop(self, queue: list[Job]) -> Job:
         job: Job = queue[0]

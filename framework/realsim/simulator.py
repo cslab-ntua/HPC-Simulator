@@ -91,9 +91,10 @@ class Simulation:
                  # cluster
                  nodes: int, socket_conf: tuple, queue_size: int,
                  # scheduler algorithms bundled with inputs
-                 schedulers_bundle):
+                 schedulers_bundle,
+                 lm = None):
 
-        self.default = "EASY Scheduler"
+        self.default = "Conservative Scheduler"
         self.executor = ProcessPoolExecutor()
 
         self.manager = Manager()
@@ -106,7 +107,7 @@ class Simulation:
         for sched_class, hyperparams in schedulers_bundle:
 
             # Declare a database for each simulation step
-            database = Database(jobs_set, heatmap)
+            database = Database(jobs_set, heatmap, lm=lm)
 
             # Declare cluster
             cluster = Cluster(nodes, socket_conf)
