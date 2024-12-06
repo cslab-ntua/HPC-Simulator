@@ -44,17 +44,17 @@ class Job:
         self.job_name = job_name
 
         # Cores/Nodes resources
-        self.num_of_processes = num_of_processes
+        self.num_of_processes = num_of_processes if num_of_processes > 0 else 1
         self.full_socket_nodes: int = -1
         self.half_socket_nodes: int = -1
         self.assigned_hosts = assigned_hosts
         self.socket_conf = tuple()
 
         # Time resources
-        self.remaining_time = remaining_time
-        self.submit_time = submit_time
+        self.remaining_time = remaining_time if remaining_time > 0 else 0.1
+        self.submit_time = submit_time if submit_time > 0 else 0.1
         self.waiting_time = waiting_time
-        self.wall_time = wall_time
+        self.wall_time = wall_time if wall_time > 0 else 0.1
         self.start_time: float = -1.0
         self.finish_time: float = -1.0
 
@@ -98,6 +98,7 @@ class Job:
 
     def __repr__(self) -> str:
         #return f"[{self.job_id}:{self.job_name}],(T:{self.remaining_time}),(C:{len(self.assigned_cores)}),(S:{self.sim_speedup})"
+        return str(self.__dict__)
         return f"[{self.job_id}:{self.job_name},T:{self.remaining_time},S:{self.sim_speedup}]"
 
     def get_avg_speedup(self) -> float:

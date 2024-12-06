@@ -55,8 +55,12 @@ class ComputeEngine:
             job.half_socket_nodes = ceil(job.num_of_processes / sum(self.cluster.half_socket_allocation))
 
             # Setup job speedups
-            speedups = list(self.db.heatmap[job.job_name].values())
-            speedups = [spd for spd in speedups if spd is not None]
+            try:
+                speedups = list(self.db.heatmap[job.job_name].values())
+                speedups = [spd for spd in speedups if spd is not None]
+            except:
+                # Set everything to compact speedup if no list is given
+                speedups = [1]
             max_speedup = min_speedup = speedups[0]
             accumulator = length = 0
             for speedup in speedups:
@@ -262,9 +266,9 @@ class ComputeEngine:
         if min_rem_time == inf and (self.cluster.waiting_queue != [] or self.db.preloaded_queue != []):
             print()
             print(self.cluster.get_idle_cores())
-            # print("PREL", self.db.preloaded_queue)
-            # print("WAIT", self.cluster.waiting_queue)
-            # print("EXEC", self.cluster.execution_list)
+            print("PREL", self.db.preloaded_queue)
+            print("WAIT", self.cluster.waiting_queue)
+            print("EXEC", self.cluster.execution_list)
             print()
             raise RuntimeError
 

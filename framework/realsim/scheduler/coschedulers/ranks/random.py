@@ -18,5 +18,8 @@ class RandomRanksCoscheduler(RanksCoscheduler):
     description = """Random co-scheduling using ranks architecture as a fallback
     to classic scheduling algorithms"""
 
-    def coloc_condition(self, hostname: str, job: Job) -> float:
+    def host_alloc_condition(self, hostname: str, job: Job) -> float:
         return float(self.cluster.hosts[hostname].state != Host.IDLE)
+
+    def backfill(self) -> bool:
+        return False

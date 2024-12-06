@@ -1,3 +1,4 @@
+---
 name: "Example"
 workloads:
   # The nancy workload(s)
@@ -7,25 +8,22 @@ workloads:
     loads-suite: "NAS"
     generator:
       type: "Random Generator"
-      arg: 1000
+      arg: 10000
+      distribution:
+        type: "Random"
+        arg: 200
+      # type: "SWF Generator"
+      # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
       nodes: 8
-      socket-conf: [16, 16]
+      socket-conf: [16,16]
     repeat: 1
-  # The aris workload(s)
-  - <<: *default_workload
-    loads-machine: "aris.compute"
-    generator:
-      type: "Random Generator"
-      arg: 200
-    cluster:
-      nodes: 420
-      socket-conf: [10, 10]
 schedulers:
-  default: "FIFO Scheduler"
+  default: "EASY Scheduler"
   others:
-    - "EASY Scheduler"
-    - "Conservative Scheduler"
+    - "FIFO Scheduler"
+    # - "EASY Scheduler"
+    # - "Conservative Scheduler"
     - "Random Ranks Co-Scheduler"
     - "/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
   general-options:

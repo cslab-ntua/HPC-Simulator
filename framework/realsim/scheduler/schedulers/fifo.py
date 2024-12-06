@@ -18,6 +18,7 @@ class FIFOScheduler(Scheduler):
         Scheduler.__init__(self)
 
     def setup(self):
+        Scheduler.setup(self)
         pass
 
     def deploy(self) -> bool:
@@ -28,7 +29,7 @@ class FIFOScheduler(Scheduler):
         while waiting_queue != []:
 
             job = self.pop(waiting_queue)
-            if self.compact_allocation(job):
+            if self.compact_allocation(job, immediate=True):
                 deployed = True
             else:
                 break

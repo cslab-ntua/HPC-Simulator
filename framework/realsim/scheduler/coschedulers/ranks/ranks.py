@@ -61,14 +61,14 @@ class RanksCoscheduler(Coscheduler, ABC):
         #self.update_ranks()
         pass
 
-    def compact_allocation(self, job: Job) -> bool:
+    def compact_allocation(self, job: Job, immediate=True) -> bool:
 
         # The job is not eligible for compact execution
         # if self.ranks[job.job_id] != 0 and job.age < self.age_threshold:
         # if self.ranks[job.job_id] != 0:
         #     return False
 
-        return super().compact_allocation(job)
+        return super().compact_allocation(job, immediate=immediate)
 
     def deploy(self) -> bool:
 

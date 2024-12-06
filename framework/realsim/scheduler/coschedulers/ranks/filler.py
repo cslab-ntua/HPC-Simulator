@@ -7,11 +7,11 @@ sys.path.append(os.path.abspath(os.path.join(
 
 from realsim.jobs.jobs import Job
 from realsim.jobs.utils import deepcopy_list
-from realsim.scheduler.coschedulers.ranks.ranks import RanksCoscheduler
+from realsim.scheduler.coschedulers.ranks.random import RandomRanksCoscheduler
 from realsim.cluster.host import Host
 
 
-class FillerCoscheduler(RanksCoscheduler):
+class FillerCoscheduler(RandomRanksCoscheduler):
 
     name = "Filler Co-Scheduler"
     description = """Co-scheduler that tries to fill the ''holes'' 
@@ -34,6 +34,3 @@ class FillerCoscheduler(RanksCoscheduler):
         factor1 = ((job.job_id + 1) / len(self.cluster.waiting_queue))
 
         return factor0 / factor1
-
-    def coloc_condition(self, hostname: str, job: Job) -> float:
-        return float(self.cluster.hosts[hostname].state != Host.IDLE)

@@ -1,10 +1,7 @@
 from mpi4py import MPI
 import os
 import sys
-from time import time
 from datetime import timedelta
-from cProfile import Profile
-import pstats
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
@@ -29,22 +26,9 @@ if rank == 0:
         comm.send(sim_batch, dest=i+1, tag=22)
 
     # Calculate the time it took to finish the simulation
-    start_time = time()
-
-    # profiler = Profile()
-    # profiler.enable()
 
     # Execute the simulation
     simulation(batch_creator.ranks[0])
-
-    # profiler.disable()
-    # stats = pstats.Stats(profiler).sort_stats("cumtime")
-    # stats.print_stats(30)
-
-
-    end_time = time()
-
-    print(f"Rank{rank} finished with time = {timedelta(seconds=(end_time - start_time))}")
 
 else:
 
@@ -53,12 +37,5 @@ else:
     for mod in necessary_modules:
         import_module(mod)
 
-    # Calculate the time it took to finish the simulation
-    start_time = time()
-
     # Execute the simulation
     simulation(comm.recv(source=0, tag=22))
-
-    end_time = time()
-
-    print(f"Rank{rank} finished with time = {timedelta(seconds=(end_time - start_time))}")

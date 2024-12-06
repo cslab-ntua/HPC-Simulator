@@ -70,3 +70,11 @@ class Cluster:
     def get_used_cores(self) -> int:
         return self.total_cores - self.idle_cores
         #return sum(self.socket_conf) * len(self.hosts) - self.get_idle_cores()
+
+    def get_hostname_procs(self) -> list[list[str]]:
+        ret = list()
+        for name, host in self.hosts.items():
+            _encoded_ = [name]
+            _encoded_.extend([str(pset) for pset in host.sockets])
+            ret.append(_encoded_)
+        return ret

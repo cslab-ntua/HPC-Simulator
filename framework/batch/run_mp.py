@@ -1,21 +1,22 @@
 from concurrent.futures import ProcessPoolExecutor
 import os
 import sys
-from time import time
-from datetime import timedelta
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
 
 from batch.batch_utils import BatchCreator
-from run_utils import simulation
+from run_utils import multiple_simulations
 
 batch_creator = BatchCreator(sys.argv[1])
 batch_creator.create_ranks()
 
-# Create the multiprocessing executor
-executor = ProcessPoolExecutor()
-for sim_batch in batch_creator.ranks:
-    executor.submit(simulation, sim_batch)
+total_procs = int(sys.argv[2])
+queue_size = int(sys.argv[3])
+executor = ProcessPoolExecutor(max_workers=total_procs)
+
+for i in range(total_procs):
+    executor.submit(multiple_simulations, batch_creator.ranks[i*queue_size:(i+1)*queue_size])
+
 executor.shutdown(wait=True)

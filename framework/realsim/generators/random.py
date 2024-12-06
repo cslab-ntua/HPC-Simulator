@@ -6,18 +6,18 @@ sys.path.append(os.path.abspath(
 ))
 
 from realsim.generators import *
-from realsim.generators.abstract import AbstractGenerator
+from realsim.generators.ACustomLogs import AbstractCustomLogsGenerator
 from numpy.random import seed, randint, random_sample
 from time import time_ns
 
 
-class RandomGenerator(AbstractGenerator[int]):
+class RandomGenerator(AbstractCustomLogsGenerator[int]):
 
     name = "Random Generator"
     description = "Generating random set of jobs from a specific LoadManager instance"
 
     def __init__(self, load_manager: LoadManager):
-        AbstractGenerator.__init__(self, load_manager=load_manager)
+        AbstractCustomLogsGenerator.__init__(self, load_manager=load_manager)
 
     def generate_jobs_set(self, arg: int) -> list[Job]:
         # Get the load names of the load_manager

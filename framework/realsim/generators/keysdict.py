@@ -6,17 +6,17 @@ sys.path.append(os.path.abspath(
 ))
 
 from realsim.generators import *
-from realsim.generators.abstract import AbstractGenerator
+from realsim.generators.ACustomLogs import AbstractCustomLogsGenerator
 from random import shuffle, seed
 from time import time_ns
 
-class KeysDictGenerator(AbstractGenerator[dict]):
+class KeysDictGenerator(AbstractCustomLogsGenerator[dict]):
 
     name = "Dictionary Generator"
     description = "Generate jobs by setting their frequency inside the set"
 
     def __init__(self, load_manager):
-        AbstractGenerator.__init__(self, load_manager=load_manager)
+        AbstractCustomLogsGenerator.__init__(self, load_manager=load_manager)
 
     def generate_jobs_set(self, arg: dict[str, int]) -> list[Job]:
         """Generate jobs based on the names in the dictionary and their

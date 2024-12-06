@@ -23,12 +23,13 @@ from api.loader import LoadManager
 from realsim.database import Database
 
 # Generators
-from realsim.generators.abstract import AbstractGenerator
+from realsim.generators.AGenerator import AbstractGenerator
 from realsim.generators.random import RandomGenerator
 from realsim.generators.randomfromlist import RandomFromListGenerator
 from realsim.generators.keysdict import KeysDictGenerator
 from realsim.generators.keyslist import KeysListGenerator
 from realsim.generators.shufflekeyslist import ShuffleKeysListGenerator
+from realsim.generators.swf import SWFGenerator
 
 # Distributions
 from realsim.generators.distribution.idistribution import IDistribution
@@ -71,7 +72,8 @@ class BatchCreator:
             RandomFromListGenerator.name: RandomFromListGenerator,
             KeysDictGenerator.name: KeysDictGenerator,
             KeysListGenerator.name: KeysListGenerator,
-            ShuffleKeysListGenerator.name: ShuffleKeysListGenerator
+            ShuffleKeysListGenerator.name: ShuffleKeysListGenerator,
+            SWFGenerator.name: SWFGenerator
         }
 
         # Ready to use schedulers implementing the Distribution interface
@@ -179,6 +181,7 @@ class BatchCreator:
 
                 # Create instance of generator
                 gen_inst = gen_cls(load_manager=lm)
+                # gen_inst = gen_cls()
 
                 if "repeat" in workload:
                     repeat = int(workload["repeat"])
@@ -360,5 +363,5 @@ class BatchCreator:
 
                 # Set actions for this simulation
                 actions = self.__actions[idx][sched_cls.name]
-                
+
                 self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))

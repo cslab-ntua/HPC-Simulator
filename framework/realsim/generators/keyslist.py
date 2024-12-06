@@ -6,15 +6,15 @@ sys.path.append(os.path.abspath(
 ))
 
 from realsim.generators import *
-from realsim.generators.abstract import AbstractGenerator
+from realsim.generators.ACustomLogs import AbstractCustomLogsGenerator
 
-class KeysListGenerator(AbstractGenerator[str]):
+class KeysListGenerator(AbstractCustomLogsGenerator[str]):
 
     name = "List Generator"
     description = "Generate jobs based on the list of names given by the user"
 
     def __init__(self, load_manager):
-        AbstractGenerator.__init__(self, load_manager=load_manager)
+        AbstractCustomLogsGenerator.__init__(self, load_manager=load_manager)
 
     def generate_jobs_set(self, arg: str) -> list[Job]:
         """Generate jobs based on the names in the dictionary and their
