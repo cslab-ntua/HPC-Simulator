@@ -17,6 +17,15 @@ class FillerCoscheduler(RanksCoscheduler):
     description = """Co-scheduler that tries to fill the ''holes'' 
     in the HPC system's resources created by the allocation of jobs inside"""
 
+    # def host_alloc_condition(self, hostname, job):
+    #     worst_speedup = super().host_alloc_condition(hostname, job)
+    #     idx = int(hostname.replace("host", "")) + 1
+    #     return worst_speedup/idx
+
+
+    # def host_alloc_condition(self, hostname: str, job: Job) -> float:
+    #     return float(self.cluster.hosts[hostname].state != Host.IDLE)
+    
     def waiting_queue_reorder(self, job: Job) -> float:
         # The job that is closer to cover the gaps is more preferrable
         sys_free_cores = self.cluster.get_idle_cores()
@@ -35,5 +44,5 @@ class FillerCoscheduler(RanksCoscheduler):
 
         return factor0 / factor1
 
-    def coloc_condition(self, hostname: str, job: Job) -> float:
-        return float(self.cluster.hosts[hostname].state != Host.IDLE)
+    # def coloc_condition(self, hostname: str, job: Job) -> float:
+    #     return float(self.cluster.hosts[hostname].state != Host.IDLE)
