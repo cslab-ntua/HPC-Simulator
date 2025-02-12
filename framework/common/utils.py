@@ -16,6 +16,15 @@ def get_ancestry_tree() -> list[str]:
         else:
             proc = parent
 
+def handler_and_formatter(logger: logging.Logger):
+
+    file_handler = logging.FileHandler(filename=f"log_{logger.name}_{socket.gethostname()}_{os.getpid()}", mode="a", encoding="utf-8")
+    file_formatter = logging.Formatter(fmt="[%(levelname)s] {%(thread)s} (%(asctime)s) - %(filename)s:%(funcName)s - %(message)s",
+                                      datefmt="%Y-%m-%d %H:%M:%S")
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+
+
 def define_logger(log_ancestry=False, log_env=False) -> logging.Logger:
 
     stack_trace = inspect.stack()
@@ -26,11 +35,9 @@ def define_logger(log_ancestry=False, log_env=False) -> logging.Logger:
     debug_enabled = os.environ.get("ELiSE_DEBUG", "false").lower()
     if debug_enabled in ["1", "yes", "true"]:
         logger.setLevel("DEBUG")
-        file_handler = logging.FileHandler(filename=f"log_{name}_{socket.gethostname()}_{os.getpid()}", mode="a", encoding="utf-8")
-        file_formater = logging.Formatter(fmt="[%(levelname)s] {%(thread)s} (%(asctime)s) - %(filename)s:%(funcName)s - %(message)s",
-                                          datefmt="%Y-%m-%d %H:%M:%S")
-        file_handler.setFormatter(file_formater)
-        logger.addHandler(file_handler)
+
+        # Define the handler and the formatting of logging
+        handler_and_formatter(logger)
 
         if log_ancestry:
             ancestry = "\n".join(["\n\tANCESTRY", "\t--------"] + [f"\t{proc_info}" for proc_info in get_ancestry_tree()])

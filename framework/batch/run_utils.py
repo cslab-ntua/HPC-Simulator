@@ -19,7 +19,7 @@ ELiSE_Progress = os.environ.get("ELiSE_PROGRESS", None)
 ELiSE_Time = os.environ.get("ELiSE_TIME", None)
 ELiSE_Profiling = os.environ.get("ELiSE_PROFILING", None)
 
-from common.utils import define_logger
+from common.utils import define_logger, handler_and_formatter
 logger = define_logger()
 
 def __get_gantt_representation(self):
@@ -60,6 +60,7 @@ def single_simulation(sim_batch):
     idx, database, cluster, scheduler, evt_logger, compengine, actions, extra_features = sim_batch
 
     comp_logger = logger.getChild("compengine")
+    handler_and_formatter(comp_logger)
     compengine.debug_logger = comp_logger
 
     logger.debug(f"Setting up the cluster, scheduler and event logger, (id {idx})")

@@ -8,7 +8,7 @@ workloads:
     loads-suite: "NAS"
     generator:
       type: "Random Generator"
-      arg: 1009
+      arg: 100
       # type: "SWF Generator"
       # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
