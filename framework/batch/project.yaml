@@ -8,34 +8,31 @@ workloads:
     loads-suite: "NAS"
     generator:
       type: "Random Generator"
-      arg: 10000
-      distribution:
-        type: "Random"
-        arg: 200
+      arg: 1009
       # type: "SWF Generator"
       # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
       nodes: 8
       socket-conf: [16,16]
-    repeat: 1
+    repeat: 19
 schedulers:
   default: "EASY Scheduler"
-  others:
-    - "FIFO Scheduler"
+  others: []
+    # - "FIFO Scheduler"
     # - "EASY Scheduler"
     # - "Conservative Scheduler"
-    - "Random Ranks Co-Scheduler"
-    - "/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
+    # - "Random Ranks Co-Scheduler"
+    # - "/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
   general-options:
     backfill_enabled: true
     compact_fallback: true
-actions:
-  get_gantt_representation:
-    workloads: "all"
-    schedulers: "all"
-    img_dir: "./images"
-  get_workload:
-    workloads: "all"
-    schedulers: "all"
-    workload_dir: "./csvs"
+actions: []
+  # get_gantt_representation:
+  #   workloads: "all"
+  #   schedulers: "all"
+  #   img_dir: "./images"
+  # get_workload:
+  #   workloads: "all"
+  #   schedulers: "all"
+  #   workload_dir: "./csvs"
 ...

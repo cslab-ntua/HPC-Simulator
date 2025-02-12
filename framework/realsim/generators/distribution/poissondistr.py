@@ -11,6 +11,8 @@ from realsim.generators.distribution.idistribution import IDistribution
 
 class PoissonDistribution(IDistribution):
 
+    name = "Poisson Distribution"
+
     def apply_distribution(self, jobs_set, **kwargs):
         # Get time step
         time_step = float(kwargs["time_step"])

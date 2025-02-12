@@ -12,6 +12,8 @@ class IDistribution(ABC):
     """Interface for Distribution classes
     """
 
+    name = None
+
     @abstractmethod
     def apply_distribution(self, jobs_set: list[Job], **kwargs) -> list[Job]:
         pass

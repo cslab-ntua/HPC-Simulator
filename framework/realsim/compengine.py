@@ -1,6 +1,14 @@
 # Utilities
+import logging
 from math import inf, ceil
 import numpy as np
+import os
+import sys
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../")
+))
+from common.utils import define_logger
 
 # Simulation
 from procset import ProcSet
@@ -11,6 +19,7 @@ from realsim.cluster.host import Host
 from realsim.cluster.cluster import Cluster
 from realsim.logger.logger import Logger
 import realsim.logger.logevts as evts
+
 
 
 class ComputeEngine:
@@ -34,6 +43,8 @@ class ComputeEngine:
         self.logger.database = self.db
         self.logger.cluster = self.cluster
         self.logger.scheduler = self.scheduler
+
+        self.debug_logger = None
 
     # Database preloaded queue setup
     def setup_preloaded_jobs(self) -> None:
@@ -123,6 +134,8 @@ class ComputeEngine:
     # Job execution/deploying/cleaning computations
     def calculate_job_rem_time(self, job: Job) -> None:
 
+        self.debug_logger.debug(f"Calculating remaining execution time of job {job.get_signature()} with inital value {job.remaining_time}")
+
         # The worst possible speedup
         worst_speedup = job.max_speedup
 
@@ -167,7 +180,10 @@ class ComputeEngine:
                     job.remaining_time *= (job.sim_speedup / worst_speedup)
                     job.sim_speedup = worst_speedup
 
+        self.debug_logger.debug(f"Calculated remaining execution time of job {job.get_signature()} with new value {job.remaining_time}")
+
     def deploy_job_to_host(self, hostname: str, job: Job, psets: list[ProcSet]) -> None:
+
 
         # Store hostname in job's registry
         job.assigned_hosts.append(hostname)
@@ -186,7 +202,11 @@ class ComputeEngine:
         self.logger.log(evts.JobStart, msg=job.get_signature(), job=job, psets=psets, hostname=hostname)
         self.logger.log(evts.JobDeployedToHost, msg=f"{job.get_signature()} in-> {hostname}")
 
+        self.debug_logger.debug(f"Job {job.get_signature()} is deployed to host {hostname}")
+
     def deploy_job_to_hosts(self, suitable_hosts, job) -> None:
+
+        self.debug_logger.debug(f"Job {job.get_signature()} is being deployed")
 
         # Remove job from cluster's waiting queue
         self.cluster.waiting_queue.remove(job)
@@ -203,7 +223,11 @@ class ComputeEngine:
         # Add job to the executing list
         self.cluster.execution_list.append(job)
 
+        self.debug_logger.debug(f"Job {job.get_signature()} has deployed for execution")
+
     def clean_job_from_hosts(self, job: Job) -> None:
+
+        self.debug_logger.debug(f"Job {job.get_signature()} is being cleaned from allocated hosts")
 
         # Set the finish time of the job
         job.finish_time = self.cluster.makespan
@@ -230,9 +254,13 @@ class ComputeEngine:
         # Log the event
         self.logger.log(evts.JobFinish, msg=f"{job.get_signature()}", job=job)
 
+        self.debug_logger.debug(f"Job {job.get_signature()} has been cleaned from allocated hosts")
+
 
     # Simulation loop computations
     def goto_next_sim_state(self) -> None:
+
+        self.debug_logger.debug("Begin executing the jobs in the execution list")
 
         #NOTE: consider adding multithreading to
         # 1) Job calculation for remaining time (reminder: the number of resources 
@@ -259,7 +287,9 @@ class ComputeEngine:
                 min_rem_time = showup_time
         
         if min_rem_time <= 0:
-            print("MIN_REM_TIME", min_rem_time)
+            self.debug_logger.error(f"The minimum next simulation step time is {min_rem_time} <=0")
+        else:
+            self.debug_logger.debug(f"The minimum next simulation step time is {min_rem_time} seconds")
         # Guard the execution
         assert min_rem_time > 0
 
@@ -270,18 +300,18 @@ class ComputeEngine:
             print("WAIT", self.cluster.waiting_queue)
             print("EXEC", self.cluster.execution_list)
             print()
+            self.debug_logger.error(f"There are jobs in the preloaded queue or waiting queue that have not being deployed for execution")
             raise RuntimeError
 
         # Forward the time of the execution
         self.cluster.makespan += min_rem_time
+        self.debug_logger.debug(f"The new makespan is {self.cluster.makespan}")
 
         # Log the event
         self.logger.log(evts.CompEngineNextTimeStep, msg=f"{min_rem_time}")
 
         # "Execute" the jobs
         execution_list: list[Job] = list()
-
-        # print("2) ", min_rem_time)
 
         #INFO: consider multithreading the deletion of jobs
         #WARN: pay attention to how the jobs are deleted from the host. 
@@ -301,12 +331,16 @@ class ComputeEngine:
         # Assign new execution list to cluster
         self.cluster.execution_list = execution_list
 
+        self.debug_logger.debug("Finished executing the jobs in the execution list")
+
     def sim_step(self) -> None:
+
+        self.debug_logger.debug("Begin of a simulation step")
 
         deployed = False
 
-
         # Deploy to waiting queue any preloaded jobs that remain
+        self.debug_logger.debug("Loading any job(s) that arrived in the waiting queue")
         self.load_in_waiting_queue()
         
         # Check if there are any jobs left waiting
@@ -323,6 +357,7 @@ class ComputeEngine:
 
         # If deployed restart scheduling procedure
         if deployed:
+            self.debug_logger.debug("End of a simulation step")
             return
 
         # If the scheduler didn't deploy jobs then
@@ -330,3 +365,5 @@ class ComputeEngine:
         # 2. There are no jobs in the waiting queue but there are in the 
         #    queue preloaded
         self.goto_next_sim_state()
+        
+        self.debug_logger.debug("End of a simulation step")

@@ -12,6 +12,8 @@ from realsim.generators.distribution.idistribution import IDistribution
 
 class RandomDistribution(IDistribution):
 
+    name = "Random Distribution"
+
     def apply_distribution(self, jobs_set, **kwargs):
         # Get time step
         time_step = float(kwargs["time_step"])

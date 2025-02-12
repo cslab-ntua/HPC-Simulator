@@ -1,11 +1,16 @@
 from datetime import timedelta
-import os
-import io
-from time import time
 from cProfile import Profile
-import pstats
+import io
+import os
 from plotly.io import from_json
+import pstats
+import sys
+from time import time
 from types import MethodType
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")
+))
 
 # Get the environment for this process
 workingdir = os.environ.get("ELiSE_WORKINGDIR", ".")
@@ -14,6 +19,8 @@ ELiSE_Progress = os.environ.get("ELiSE_PROGRESS", None)
 ELiSE_Time = os.environ.get("ELiSE_TIME", None)
 ELiSE_Profiling = os.environ.get("ELiSE_PROFILING", None)
 
+from common.utils import define_logger
+logger = define_logger()
 
 def __get_gantt_representation(self):
     res = self.__class__.get_gantt_representation(self) # Have to call this way to avoid infinite recursion
@@ -38,23 +45,28 @@ def __get_animated_cluster(self):
     fig = from_json(res)
     fig.show()
 
-def patch(logger, extra_features):
+def patch(evt_logger, extra_features):
     for arg, val in extra_features:
-        logger.__dict__[arg] = val
-    logger.get_gantt_representation = MethodType(__get_gantt_representation, logger)
-    logger.get_workload = MethodType(__get_workload, logger)
-    logger.get_animated_cluster = MethodType(__get_animated_cluster, logger)
+        evt_logger.__dict__[arg] = val
+    evt_logger.get_gantt_representation = MethodType(__get_gantt_representation, evt_logger)
+    evt_logger.get_workload = MethodType(__get_workload, evt_logger)
+    evt_logger.get_animated_cluster = MethodType(__get_animated_cluster, evt_logger)
 
 
 def single_simulation(sim_batch):
     """The function that defines the simulation loop and actions
     """
 
-    idx, database, cluster, scheduler, logger, compengine, actions, extra_features = sim_batch
+    idx, database, cluster, scheduler, evt_logger, compengine, actions, extra_features = sim_batch
+
+    comp_logger = logger.getChild("compengine")
+    compengine.debug_logger = comp_logger
+
+    logger.debug(f"Setting up the cluster, scheduler and event logger, (id {idx})")
 
     cluster.setup()
     scheduler.setup()
-    logger.setup()
+    evt_logger.setup()
 
     #TODO: make profiling and timer a context environment
 
@@ -64,6 +76,7 @@ def single_simulation(sim_batch):
     # Profiling segment
     profiler = Profile()
     if ELiSE_Profiling:
+        logger.debug("Profiling is enabled")
         profiler.enable()
 
     # Timing segment
@@ -71,11 +84,14 @@ def single_simulation(sim_batch):
 
     if ELiSE_Progress:
         print(f"\rTotal progress: 0.00%", end="")
+        logger.debug("Progress reports are enabled")
     while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
-        compengine.sim_step()
-        if ELiSE_Progress:
-            print(f"\rTotal progress: {100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs):.2f}%", end="")
-    print()
+        try:
+            compengine.sim_step()
+            if ELiSE_Progress:
+                print(f"\rTotal progress: {100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs):.2f}%", end="")
+        except:
+            logger.exception("An error occurred during the execution of the simulation")
 
     # Timing segment
     if ELiSE_Time:
@@ -108,15 +124,17 @@ def single_simulation(sim_batch):
 
     # If there are actions provided for this rank
     if actions != []:
-        # Overwrite logger's interface
+        # Overwrite event logger's interface
         extra_features.append(("sim_id", idx))
-        patch(logger, extra_features)
+        patch(evt_logger, extra_features)
 
         # Perform actions upon completion
         for action in actions:
-            getattr(logger, action)()
+            getattr(evt_logger, action)()
 
 
 def multiple_simulations(sim_batches):
     for sim_batch in sim_batches:
+        logger.debug(f"Starting single simulation with id {sim_batch[0]}")
         single_simulation(sim_batch)
+        logger.debug(f"Finished single simulation with id {sim_batch[0]}")

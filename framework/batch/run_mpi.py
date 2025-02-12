@@ -1,41 +1,65 @@
 from mpi4py import MPI
 import os
 import sys
-from datetime import timedelta
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
 
 from batch.batch_utils import import_module
-from run_utils import simulation
+from common.utils import define_logger
+from run_utils import multiple_simulations
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 
 if rank == 0:
 
+    logger = define_logger(log_ancestry=True, log_env=True)
+
+    project_file_path = sys.argv[1]
+    batch_size = int(sys.argv[2])
+    total_procs = comm.Get_size()
+
     from batch.batch_utils import BatchCreator
-    batch_creator = BatchCreator(sys.argv[1])
+    batch_creator = BatchCreator(project_file_path)
     batch_creator.create_ranks()
 
-    for i, sim_batch in enumerate(batch_creator.ranks[1:]):
-        # Send the necessary modules to import first
-        comm.send(batch_creator.mods_export, dest=i+1, tag=10)
-        # Then, send the simulation batch
-        comm.send(sim_batch, dest=i+1, tag=22)
+    if total_procs > 1:
+        logger.debug("Start sending simulation configuration batches to other MPI ranks")
+        for i in range(1, total_procs):
+            try:
+                logger.debug("Send the additional module that need to load")
+                # Send the necessary modules to import first
+                comm.send(batch_creator.mods_export, dest=i, tag=10)
+            except:
+                logger.exception(f"Problem occurred when sending modules to be imported from MPI Rank 0 to MPI Rank {i}")
+ 
+            try:
+                logger.debug(f"MPI Rank {i} gets {batch_size} number of simulation configurations")
+                # Then, send the simulation batch
+                comm.send(batch_creator.ranks[i*batch_size:(i+1)*batch_size], dest=i, tag=22)
+            except:
+                logger.exception(f"Problem occurred when sending simulation configurations batch from MPI Rank 0 to MPI Rank {i}")
 
-    # Calculate the time it took to finish the simulation
-
+    logger.debug(f"Rank {rank} begins execution of simulation batches")
     # Execute the simulation
-    simulation(batch_creator.ranks[0])
+    multiple_simulations(batch_creator.ranks[:batch_size])
+
+    logger.debug(f"Rank {rank} finished execution without any errors")
 
 else:
 
+    logger = define_logger(log_ancestry=True, log_env=True)
+
     # Import all the necessary modules before starting the simulation
     necessary_modules = comm.recv(source=0, tag=10)
+    logger.debug(f"Rank {rank} receives modules to import: {necessary_modules}")
     for mod in necessary_modules:
         import_module(mod)
 
+    logger.debug(f"Rank {rank} begins execution of simulation batches")
     # Execute the simulation
-    simulation(comm.recv(source=0, tag=22))
+    multiple_simulations(comm.recv(source=0, tag=22))
+
+    logger.debug(f"Rank {rank} finished execution without any errors")

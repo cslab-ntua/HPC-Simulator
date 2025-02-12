@@ -10,6 +10,8 @@ from realsim.generators.distribution.idistribution import IDistribution
 
 class ConstantDistribution(IDistribution):
 
+    name = "Constant Distribution"
+
     def apply_distribution(self, jobs_set, **kwargs):
         # Get the constant time step
         time_step = float(kwargs["time_step"])

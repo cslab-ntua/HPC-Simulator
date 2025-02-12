@@ -16,6 +16,10 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
 ))
 
+# Get logger
+from common.utils import define_logger
+logger = define_logger()
+
 # LoadManager
 from api.loader import LoadManager
 
@@ -64,7 +68,7 @@ def import_module(path):
 
 class BatchCreator:
 
-    def __init__(self, path_to_script: str):
+    def __init__(self, project_file_path: str):
 
         # Ready to use generators implementing the AbstractGenerator interface
         self.__impl_generators = {
@@ -91,8 +95,9 @@ class BatchCreator:
             RandomRanksCoscheduler.name: RandomRanksCoscheduler
         }
         
+        logger.debug(f"Opening project file: {project_file_path}")
         # Load the configuration file
-        with open(path_to_script, "r") as fd:
+        with open(project_file_path, "r") as fd:
 
             self.config = safe_load(fd)
             
@@ -109,7 +114,8 @@ class BatchCreator:
         # If using MPI store modules that should be exported to other MPI procs
         self.mods_export = list()
 
-    def get_procs_num(self) -> int:
+    def get_sim_configs_num(self) -> int:
+        logger.debug("Calculating the total number of simulation configurations")
         workloads_num = 0
         for workload in self.__project_workloads:
             workloads_num += 1 if "repeat" not in workload else int(workload["repeat"])
@@ -117,6 +123,8 @@ class BatchCreator:
         return workloads_num * (1 + len(self.__project_schedulers["others"]))
 
     def process_workloads(self) -> None:
+
+        logger.debug("Begin processing the workloads")
 
         # Process the workloads
         self.__workloads = list()
@@ -148,6 +156,8 @@ class BatchCreator:
                     heatmap = json_loads(fd.read())
             else:
                 heatmap = lm.export_heatmap()
+
+            logger.debug(f"Finished calculating the heatmap: {heatmap}")
 
             # Create the workload using the generator provided
             if "generator" in workload:
@@ -182,6 +192,8 @@ class BatchCreator:
                 # Create instance of generator
                 gen_inst = gen_cls(load_manager=lm)
                 # gen_inst = gen_cls()
+            
+                logger.debug(f"Got the generator: {gen_inst.name}")
 
                 if "repeat" in workload:
                     repeat = int(workload["repeat"])
@@ -204,8 +216,12 @@ class BatchCreator:
                     else:
                         gen_workload = gen_inst.generate_jobs_set(gen_arg)
 
+
+                    logger.debug(f"Finished generating the workload")
+
                     # Check if a transformer distribution is provided by the user
                     if "distribution" in generator:
+                    
                         distribution = generator["distribution"]
                         distr_type = distribution["type"]
                         distr_arg = distribution["arg"]
@@ -232,6 +248,9 @@ class BatchCreator:
                         distr_inst = distr_cls()
                         distr_inst.apply_distribution(gen_workload, time_step=distr_arg)
 
+                        logger.debug(f"A distribution was applied to the workload: {distr_inst.name}")
+
+
                     nodes = int(workload["cluster"]["nodes"])
                     socket_conf = tuple(workload["cluster"]["socket-conf"])
                     self.__workloads.append((gen_workload, heatmap, nodes, socket_conf))
@@ -239,7 +258,11 @@ class BatchCreator:
             else:
                 raise RuntimeError("A generator was not provided")
 
+        logger.debug("Finished processing the workloads")
+
     def process_schedulers(self) -> None:
+
+        logger.debug("Begin processing the schedulers")
 
         # Process the schedulers
         # The first one in the list will always be the default
@@ -269,6 +292,8 @@ class BatchCreator:
 
             self.__schedulers.append(sched_cls)
 
+        logger.debug(f"Finished processing the schedulers: {self.__schedulers}")
+
     def process_actions(self) -> None:
         """
         The structure of self.__actions
@@ -290,6 +315,9 @@ class BatchCreator:
         The structure of self.__extra_features is a list of (arg: str, val: T) tuples
         self.__extra_features = [(arg0, val0), (arg1, val1), ...]
         """
+
+        logger.debug("Begin processing the postprocessing actions")
+
         # Define __actions
         self.__actions = dict()
         for i in range(len(self.__workloads)):
@@ -329,6 +357,8 @@ class BatchCreator:
                     else:
                         for sched_name in action_schedulers:
                             self.__actions[i][sched_name].append(action)
+
+        logger.debug(f"Finished processing the postprocessing actions: {self.__extra_features}")
 
     def create_ranks(self) -> None:
         self.process_workloads()
