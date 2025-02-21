@@ -141,7 +141,7 @@ class BatchCreator:
                 lm.init_loads(runs_dir=path)
             elif "load-manager" in workload:
                 # A pickled LoadManager instance (or json WIP)
-                with open(workload["load-manager"], "wb") as fd:
+                with open(workload["load-manager"], "rb") as fd:
                     lm = pickle_load(fd)
             elif "db" in workload:
                 # A mongo database url
@@ -365,9 +365,12 @@ class BatchCreator:
         self.process_schedulers()
         self.process_actions()
 
+        # Id for the simulation run
+        sim_id = 0
+
         # Create the ranks
         self.ranks = list()
-        for idx, [workload, heatmap, nodes, socket_conf] in enumerate(self.__workloads):
+        for jdx, [workload, heatmap, nodes, socket_conf] in enumerate(self.__workloads):
             for sched_cls in self.__schedulers:
 
                 # Create a database instance
@@ -392,6 +395,8 @@ class BatchCreator:
                 compengine.setup_preloaded_jobs()
 
                 # Set actions for this simulation
-                actions = self.__actions[idx][sched_cls.name]
+                actions = self.__actions[jdx][sched_cls.name]
 
-                self.ranks.append((idx, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
+                self.ranks.append((sim_id, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
+
+                sim_id += 1

@@ -3,7 +3,6 @@ import logging
 import os
 import psutil
 import socket
-import textwrap
 
 def get_ancestry_tree() -> list[str]:
     proc = psutil.Process()
@@ -23,7 +22,6 @@ def handler_and_formatter(logger: logging.Logger):
                                       datefmt="%Y-%m-%d %H:%M:%S")
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
-
 
 def define_logger(log_ancestry=False, log_env=False) -> logging.Logger:
 
@@ -49,3 +47,9 @@ def define_logger(log_ancestry=False, log_env=False) -> logging.Logger:
 
 
     return logger
+
+def envvar_bool_val(envvar_name):
+    envvar_val_str = os.environ.get(envvar_name, "0")
+    if envvar_val_str.lower() in ["1", "y", "yes", "true"]:
+        return True
+    return False

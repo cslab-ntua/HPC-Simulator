@@ -1,4 +1,5 @@
 import argparse
+import socket
 from batch_utils import BatchCreator
 from math import ceil
 from multiprocessing import cpu_count
@@ -18,9 +19,9 @@ def local_or_hpc_env():
 
     total_cores = -1
 
-    if "SLURM_TASKS" in os.environ:
+    if "SLURM_NTASKS" in os.environ:
         logger.debug("Inside a SLURM environment")
-        total_cores = int(os.environ["SLURM_TASKS"])
+        total_cores = int(os.environ["SLURM_NTASKS"])
     else:
         logger.debug("Not in a scheduler environment. Executing in localhost")
         total_cores = cpu_count()
@@ -60,6 +61,12 @@ if __name__ == "__main__":
     sim_configs_num = batch_creator.get_sim_configs_num()
     logger.debug(f"The total number of simulation configurations is {sim_configs_num}")
 
+    logger.debug(f"Starting progress server process")
+    server_ipaddr = socket.gethostbyname(socket.gethostname()) 
+    server_port = 54321
+    server_prog_cmd = ["python", "progress_server.py", "--server_ipaddr", server_ipaddr, "--server_port", str(server_port), "--connections", str(sim_configs_num)]
+    sim_progress_proc = subprocess.Popen(server_prog_cmd, env=os.environ.copy())
+
     # Calculate the number of available cores under the context
     avail_cores = local_or_hpc_env()
 
@@ -76,11 +83,16 @@ if __name__ == "__main__":
     submission_cmd = list()
     if provider == "mp":
         logger.debug("Using Python's multiprocessing library as backend")
-        submission_cmd = ["python", "run_mp.py", project_file, str(total_procs), str(batch_size)]
+        submission_cmd = ["python", "run_mp.py", project_file, str(total_procs), str(batch_size), server_ipaddr, str(server_port)]
 
     elif provider == "mpi":
         logger.debug("Using MPI as backend")
-        submission_cmd = ["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(total_procs), "python", "run_mpi.py", project_file, str(batch_size)]
+        submission_cmd = ["mpirun", "--bind-to", "none", "--oversubscribe", "-np", str(total_procs), "python", "run_mpi.py", project_file, str(batch_size), server_ipaddr, str(server_port)]
 
     logger.debug(f"Submission command: {' '.join(submission_cmd)}")
-    process = subprocess.Popen(submission_cmd, env=os.environ.copy())
+    sim_run_proc = subprocess.Popen(submission_cmd, env=os.environ.copy())
+    sim_run_proc.wait()
+    logger.debug(f"The simulation runs finished successfully")
+
+    sim_progress_proc.wait()
+    logger.debug(f"The progress server closed gracefully")

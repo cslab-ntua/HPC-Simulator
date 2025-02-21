@@ -1,4 +1,5 @@
 from mpi4py import MPI
+from functools import partial
 import os
 import sys
 
@@ -12,6 +13,10 @@ from run_utils import multiple_simulations
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
+
+server_ipaddr = sys.argv[3]
+server_port = int(sys.argv[4])
+multiple_simulations_partial = partial(multiple_simulations, server_ipaddr=server_ipaddr, server_port=server_port)
 
 if rank == 0:
 
@@ -44,7 +49,7 @@ if rank == 0:
 
     logger.debug(f"Rank {rank} begins execution of simulation batches")
     # Execute the simulation
-    multiple_simulations(batch_creator.ranks[:batch_size])
+    multiple_simulations_partial(batch_creator.ranks[:batch_size])
 
     logger.debug(f"Rank {rank} finished execution without any errors")
 
@@ -60,6 +65,6 @@ else:
 
     logger.debug(f"Rank {rank} begins execution of simulation batches")
     # Execute the simulation
-    multiple_simulations(comm.recv(source=0, tag=22))
+    multiple_simulations_partial(comm.recv(source=0, tag=22))
 
     logger.debug(f"Rank {rank} finished execution without any errors")

@@ -14,14 +14,14 @@ workloads:
     cluster:
       nodes: 8
       socket-conf: [16,16]
-    repeat: 19
+    repeat: 10
 schedulers:
   default: "EASY Scheduler"
-  others: []
-    # - "FIFO Scheduler"
+  others:
+    - "FIFO Scheduler"
     # - "EASY Scheduler"
-    # - "Conservative Scheduler"
-    # - "Random Ranks Co-Scheduler"
+    - "Conservative Scheduler"
+    - "Random Ranks Co-Scheduler"
     # - "/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
   general-options:
     backfill_enabled: true

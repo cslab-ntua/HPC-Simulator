@@ -1,0 +1,106 @@
+import argparse
+import json
+import os
+import select
+import socket
+import sys
+
+sys.path.append(os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..")
+))
+
+from common.utils import define_logger
+
+logger = define_logger()
+
+def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5):
+
+    # Create a socket and set options for resusable ip address
+    server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    # Bind socket to the given ip address and port
+    server_sock.bind((server_ipaddr, server_port))
+
+    # Listen to incoming connections
+    server_sock.listen(connections)
+
+    # List of current available open sockets
+    current_sockets = [server_sock]
+
+    # Remaining connections
+    rem_connections = connections
+
+    # Progress for all connections
+    progress_list = [0] * connections
+
+    while True:
+
+        print(f"\rOverall Progress: {sum(progress_list) / connections:.2f}%", end="")
+
+        # If the remaining connections is zero and the only socket left is the
+        # server then shutdown the progress server
+        if rem_connections == 0 and len(current_sockets) == 1 and current_sockets[0] == server_sock:
+            break
+
+        # Select/poll from current_sockets
+        read_sockets, _, _ = select.select(current_sockets, [], [])
+
+        for notified_socket in read_sockets:
+
+            # If a new connection arrives
+            if notified_socket == server_sock:
+
+                client_sock, client_ipaddr = server_sock.accept()
+                # print(f"New connection coming from {client_ipaddr}")
+                current_sockets.append(client_sock)
+
+            # A message arrived from a client socket
+            else:
+
+                msg = notified_socket.recv(1024)
+
+                # The client has finished execution and exited
+                if not msg:
+                    # print(f"Closed connection from {notified_socket.getpeername()}")
+                    current_sockets.remove(notified_socket)
+                    notified_socket.close()
+                    # Decrease the amount of remaining socket connections to be fullfilled
+                    rem_connections -= 1
+
+                # If the client has given new information about their progress
+                else:
+                    logger.debug(msg.decode())
+                    try:
+                        msg_dec = str(msg.decode())
+                        start_pos = msg_dec.find("{")
+                        end_pos = msg_dec.find("}")
+                        msg_dec = msg_dec[start_pos:end_pos+1]
+                        msg_dict = json.loads(msg_dec)
+                        idx = int(msg_dict["id"])
+                        progress_perc = int(msg_dict["progress_perc"])
+
+                        # Update the progress report for the specific simulation run
+                        if progress_perc > progress_list[idx]:
+                            progress_list[idx] = progress_perc
+                    except:
+                        print(msg.decode())
+                        pass
+
+    # Close the server socket
+    server_sock.close()
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(prog="progress_server", description="A server process to monitor the progress of each simulation")
+    parser.add_argument("--server_ipaddr", type=str, required=True)
+    parser.add_argument("--server_port", type=int, default=54321)
+    parser.add_argument("--connections", type=int, required=True)
+
+    args = parser.parse_args()
+
+    host_ipaddr = args.server_ipaddr
+    port = args.server_port
+    connections = args.connections
+
+    progress_server(host_ipaddr, port, connections)

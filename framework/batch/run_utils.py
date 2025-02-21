@@ -1,5 +1,6 @@
 from datetime import timedelta
 from cProfile import Profile
+import json
 import io
 import os
 from plotly.io import from_json
@@ -7,6 +8,7 @@ import pstats
 import sys
 from time import time
 from types import MethodType
+import socket
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
@@ -19,7 +21,7 @@ ELiSE_Progress = os.environ.get("ELiSE_PROGRESS", None)
 ELiSE_Time = os.environ.get("ELiSE_TIME", None)
 ELiSE_Profiling = os.environ.get("ELiSE_PROFILING", None)
 
-from common.utils import define_logger, handler_and_formatter
+from common.utils import define_logger, handler_and_formatter, envvar_bool_val
 logger = define_logger()
 
 def __get_gantt_representation(self):
@@ -53,14 +55,19 @@ def patch(evt_logger, extra_features):
     evt_logger.get_animated_cluster = MethodType(__get_animated_cluster, evt_logger)
 
 
-def single_simulation(sim_batch):
+def single_simulation(sim_batch, server_ipaddr, server_port):
     """The function that defines the simulation loop and actions
     """
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((server_ipaddr, server_port))
+    sock.setblocking(False)
 
     idx, database, cluster, scheduler, evt_logger, compengine, actions, extra_features = sim_batch
 
     comp_logger = logger.getChild("compengine")
-    handler_and_formatter(comp_logger)
+    if envvar_bool_val("ELiSE_DEBUG"):
+        handler_and_formatter(comp_logger)
     compengine.debug_logger = comp_logger
 
     logger.debug(f"Setting up the cluster, scheduler and event logger, (id {idx})")
@@ -83,16 +90,17 @@ def single_simulation(sim_batch):
     # Timing segment
     start_time = time()
 
-    if ELiSE_Progress:
-        print(f"\rTotal progress: 0.00%", end="")
-        logger.debug("Progress reports are enabled")
     while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
         try:
             compengine.sim_step()
-            if ELiSE_Progress:
-                print(f"\rTotal progress: {100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs):.2f}%", end="")
+            progress_perc = 100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs)
+            msg_to_send = json.dumps( {"id": idx, "progress_perc": progress_perc} ).encode()
+            msg_to_send = msg_to_send + b'\0' * (1024 - len(msg_to_send))
+            sock.send(msg_to_send)
         except:
             logger.exception("An error occurred during the execution of the simulation")
+
+    sock.close()
 
     # Timing segment
     if ELiSE_Time:
@@ -134,8 +142,8 @@ def single_simulation(sim_batch):
             getattr(evt_logger, action)()
 
 
-def multiple_simulations(sim_batches):
+def multiple_simulations(sim_batches, server_ipaddr, server_port):
     for sim_batch in sim_batches:
         logger.debug(f"Starting single simulation with id {sim_batch[0]}")
-        single_simulation(sim_batch)
+        single_simulation(sim_batch, server_ipaddr, server_port)
         logger.debug(f"Finished single simulation with id {sim_batch[0]}")
