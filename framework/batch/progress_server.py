@@ -1,9 +1,12 @@
 import argparse
+import csv
+from datetime import timedelta
 import json
 import os
 import select
 import socket
 import sys
+import tabulate
 
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
@@ -13,7 +16,7 @@ from common.utils import define_logger
 
 logger = define_logger()
 
-def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5):
+def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5, export_reports=False):
 
     # Create a socket and set options for resusable ip address
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,6 +36,9 @@ def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5)
 
     # Progress for all connections
     progress_list = [0] * connections
+    
+    # Time reports list of tuples(id, scheduler name, real time, simulated time, time ratio)
+    time_reports_list: list[tuple[int, str, str, str, str]] = list()
 
     while True:
 
@@ -40,7 +46,7 @@ def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5)
 
         # If the remaining connections is zero and the only socket left is the
         # server then shutdown the progress server
-        if rem_connections == 0 and len(current_sockets) == 1 and current_sockets[0] == server_sock:
+        if rem_connections <= 0 and len(current_sockets) == 1 and current_sockets[0] == server_sock:
             break
 
         # Select/poll from current_sockets
@@ -77,15 +83,53 @@ def progress_server(server_ipaddr="127.0.0.1", server_port=54321, connections=5)
                         end_pos = msg_dec.find("}")
                         msg_dec = msg_dec[start_pos:end_pos+1]
                         msg_dict = json.loads(msg_dec)
+                        
                         idx = int(msg_dict["id"])
-                        progress_perc = int(msg_dict["progress_perc"])
 
-                        # Update the progress report for the specific simulation run
-                        if progress_perc > progress_list[idx]:
-                            progress_list[idx] = progress_perc
+                        # Check whether it is a progress report or a time report
+                        if "progress_perc" in msg_dict:
+
+                            progress_perc = int(msg_dict["progress_perc"])
+                            # Update the progress report for the specific simulation run
+                            if progress_perc > progress_list[idx]:
+                                progress_list[idx] = progress_perc
+
+                        elif "real_time" in msg_dict:
+                            scheduler_name = msg_dict["scheduler"]
+                            real_time = float(msg_dict["real_time"])
+                            sim_time = float(msg_dict["sim_time"])
+                            time_ratio = sim_time / (24 * real_time)
+
+                            time_reports_list.append((
+                                idx,
+                                scheduler_name,
+                                str(timedelta(seconds=real_time)),
+                                str(timedelta(seconds=sim_time)),
+                                str(time_ratio)
+                            ))
+
                     except:
                         print(msg.decode())
                         pass
+    
+    # Sort time reports based on the simulation run ID
+    time_reports_list.sort(key=lambda elem: elem[0])
+
+    # Before closing the server print the time reports of all the simulation runs
+    headers = ["Simulation ID", 
+               "Scheduler Name", 
+               "Real Time (D, HH:MM:SS)", 
+               "Simulated Time (D, HH:MM:SS)", 
+               "Time Ratio (Simulated Days / 1 real hour)"]
+    if export_reports:
+        with open("time_reports.csv", "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+            for row in time_reports_list:
+                writer.writerow(row)
+    else:
+        print()
+        print(tabulate.tabulate(time_reports_list, headers=headers, tablefmt="fancy_grid"))
 
     # Close the server socket
     server_sock.close()
@@ -96,11 +140,13 @@ if __name__ == "__main__":
     parser.add_argument("--server_ipaddr", type=str, required=True)
     parser.add_argument("--server_port", type=int, default=54321)
     parser.add_argument("--connections", type=int, required=True)
+    parser.add_argument("--export_reports", default=False, action="store_true")
 
     args = parser.parse_args()
 
     host_ipaddr = args.server_ipaddr
     port = args.server_port
     connections = args.connections
+    export_reports = args.export_reports
 
-    progress_server(host_ipaddr, port, connections)
+    progress_server(host_ipaddr, port, connections, export_reports)
