@@ -1,5 +1,4 @@
 # Utilities
-import logging
 from math import inf, ceil
 import numpy as np
 import os
