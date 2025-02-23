@@ -14,14 +14,7 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
 
-# Get the environment for this process
-workingdir = os.environ.get("ELiSE_WORKINGDIR", ".")
-ELiSE_Report = os.environ.get("ELiSE_REPORT", 1)
-ELiSE_Progress = os.environ.get("ELiSE_PROGRESS", None)
-ELiSE_Time = os.environ.get("ELiSE_TIME", None)
-ELiSE_Profiling = os.environ.get("ELiSE_PROFILING", None)
-
-from common.utils import define_logger, handler_and_formatter, envvar_bool_val
+from common.utils import define_logger, handler_and_formatter, envvar_bool_val, profiling_ctx
 logger = define_logger()
 
 def __get_gantt_representation(self):
@@ -54,6 +47,9 @@ def patch(evt_logger, extra_features):
     evt_logger.get_workload = MethodType(__get_workload, evt_logger)
     evt_logger.get_animated_cluster = MethodType(__get_animated_cluster, evt_logger)
 
+def pad_message(msg):
+    DEFAULT_MSG_LEN = 1024
+    return msg + b'\0' * (DEFAULT_MSG_LEN- len(msg))
 
 def single_simulation(sim_batch, server_ipaddr, server_port):
     """The function that defines the simulation loop and actions
@@ -76,60 +72,41 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
     scheduler.setup()
     evt_logger.setup()
 
-    #TODO: make profiling and timer a context environment
-
-    # Progress segment
+    # Progress counter
     total_jobs = len(database.preloaded_queue)
 
-    # Profiling segment
-    profiler = Profile()
-    if ELiSE_Profiling:
-        logger.debug("Profiling is enabled")
-        profiler.enable()
-
-    # Timing segment
+    # Start timer
     start_time = time()
+    
+    with profiling_ctx(idx, scheduler.name, logger):
 
-    while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
-        try:
-            compengine.sim_step()
+        while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
+            try:
+                compengine.sim_step()
+            except:
+                logger.exception("An error occurred during the execution of the simulation")
+
             progress_perc = 100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs)
-            msg_to_send = json.dumps( {"id": idx, "progress_perc": progress_perc} ).encode()
-            msg_to_send = msg_to_send + b'\0' * (1024 - len(msg_to_send))
-            sock.send(msg_to_send)
-        except:
-            logger.exception("An error occurred during the execution of the simulation")
+            msg_to_send = pad_message(json.dumps( {"id": idx, "progress_perc": progress_perc} ).encode())
+            try:
+                sock.send(msg_to_send)
+            except:
+                logger.exception("The socket couldn't connect to the progress server. It will be reconnecting")
+                sock.close()
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((server_ipaddr, server_port))
+                sock.setblocking(False)
+    
+    # Calculate the real time and simulated time
+    real_time = time() - start_time
+    sim_time = cluster.makespan
 
+    # Send the times back to the progress server
+    msg_to_send = pad_message(json.dumps( {"id": idx, "scheduler": scheduler.name, "real_time": real_time, "sim_time": sim_time} ).encode())
+    sock.send(msg_to_send)
+
+    # Close communication socket
     sock.close()
-
-    # Timing segment
-    if ELiSE_Time:
-        end_time = time()
-        print(f"{scheduler.name} took {end_time - start_time} s to finish")
-
-    # Profiling segment
-    if ELiSE_Profiling:
-        profiler.disable()
-        strstream = io.StringIO()
-        stats = pstats.Stats(profiler, stream=strstream).sort_stats("cumtime")
-        stats.print_stats(30)
-        os.makedirs(f"{workingdir}/reports", exist_ok=True)
-        with open(f"{workingdir}/reports/workload_{idx}_{scheduler.name.lower().replace(' ', '_')}_profile.log") as fd:
-            fd.write(strstream.getvalue())
-
-    if ELiSE_Report:
-        real_time = time() - start_time
-        sim_time = cluster.makespan
-        reportlines = list()
-        reportlines.append(f"Real time = {timedelta(seconds=real_time)}")
-        reportlines.append(f"Simulated time = {timedelta(seconds=sim_time)}")
-        reportlines.append(f"Time ratio = {sim_time / (24 * real_time)} sim days / 1 real hr")
-        try:
-            os.makedirs(f"{workingdir}/reports", exist_ok=True)
-            with open(f"{workingdir}/reports/workload_{idx}_{scheduler.name.lower().replace(' ', '_')}_report.log", "w") as fd:
-                fd.write("\n".join(reportlines))
-        except:
-            raise RuntimeError("Couldn't write report")
 
     # If there are actions provided for this rank
     if actions != []:
