@@ -6,7 +6,8 @@ sys.path.append(os.path.abspath(os.path.join(
     os.path.dirname(__file__), "../../../../"
 )))
 
-from realsim.jobs.jobs import Job, JobCharacterization
+from realsim.jobs.jobs import Job
+from realsim.jobs.utils import JobCharacterization
 from realsim.jobs.utils import deepcopy_list
 from realsim.scheduler.coscheduler import Coscheduler
 import math

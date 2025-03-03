@@ -3,6 +3,19 @@ Utility function used in various instances of the source code for Jobs inside
 containers
 """
 
+class JobCharacterization:
+    COMPACT = 0
+    SPREAD = 1
+    ROBUST = 2
+    FRAIL = 3
+
+class JobState:
+    PENDING = 0
+    EXECUTING = 1
+    FINISHED = 2
+    FAILED = 3
+    ABORTED = 4
+
 from .jobs import Job
 
 

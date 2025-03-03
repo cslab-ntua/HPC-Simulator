@@ -1,1 +1,2 @@
-from .jobs import Job, JobCharacterization
+from .jobs import Job
+from .utils import JobCharacterization, JobState

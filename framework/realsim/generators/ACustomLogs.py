@@ -31,14 +31,22 @@ class AbstractCustomLogsGenerator(AbstractGenerator, Generic[T]):
 
     def generate_job(self, idx: int, load: Load) -> Job:
         seed(time_ns() % (2**32))
-        job =  Job(job_id=idx,
-                   job_name=load.load_name,
-                   num_of_processes=load.num_of_processes,
-                   assigned_hosts=list(),
-                   remaining_time=load.get_med_time(),
-                   submit_time=0,
-                   waiting_time=0,
-                   wall_time=(1.4 * load.get_med_time()))
+        # job =  Job(job_id=idx,
+        #            job_name=load.load_name,
+        #            num_of_processes=load.num_of_processes,
+        #            assigned_hosts=list(),
+        #            remaining_time=load.get_med_time(),
+        #            submit_time=0,
+        #            waiting_time=0,
+        #            wall_time=(1.4 * load.get_med_time()))
+        job =  Job(idx,
+                   load.load_name,
+                   load.num_of_processes,
+                   list(),
+                   load.get_med_time(),
+                   0,
+                   0,
+                   (1.4 * load.get_med_time()))
         job.job_tag = load.get_tag()
 
         return job

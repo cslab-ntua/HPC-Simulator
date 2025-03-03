@@ -4,24 +4,25 @@ workloads:
   # The nancy workload(s)
   - &default_workload
     db: "mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net"
-    loads-machine: "remake-g5k.nancy.grvingt"
+    loads-machine: "marconi"
+    # loads-machine: "aris.compute"
     loads-suite: "NAS"
     generator:
       type: "Random Generator"
-      arg: 100
+      arg: 1000
       # type: "SWF Generator"
       # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
-      nodes: 8
+      nodes: 42000
       socket-conf: [16,16]
-    repeat: 10
+    repeat: 1
 schedulers:
   default: "EASY Scheduler"
-  others:
-    - "FIFO Scheduler"
+  others: []
+    # - "FIFO Scheduler"
     # - "EASY Scheduler"
-    - "Conservative Scheduler"
-    - "Random Ranks Co-Scheduler"
+    # - "Conservative Scheduler"
+    # - "Random Ranks Co-Scheduler"
     # - "/home/stratos/Development/Job/HPC-Simulator/framework/realsim/scheduler/coschedulers/ranks/filler.py"
   general-options:
     backfill_enabled: true

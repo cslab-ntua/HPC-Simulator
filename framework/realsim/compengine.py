@@ -4,6 +4,8 @@ import numpy as np
 import os
 import sys
 
+from functools import partial
+
 sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "../")
 ))
@@ -11,7 +13,8 @@ from common.utils import define_logger
 
 # Simulation
 from procset import ProcSet
-from realsim.jobs.jobs import Job, JobCharacterization, JobState
+from realsim.jobs.jobs import Job
+from realsim.jobs.utils import JobCharacterization, JobState
 from realsim.jobs.utils import deepcopy_list
 from realsim.database import Database
 from realsim.cluster.host import Host
@@ -19,6 +22,7 @@ from realsim.cluster.cluster import Cluster
 from realsim.logger.logger import Logger
 import realsim.logger.logevts as evts
 
+from realsim.compengine_utils import calculate_rem_times, next_sim_state
 
 
 class ComputeEngine:
@@ -267,10 +271,32 @@ class ComputeEngine:
         # 2) Finding the minimum remaining execution time
         # 3) Finding the minimum showup time in the preloaded queue (this is a more preferrable action
         # at least in the beginning of a simulation)
+        
+        # print(self.cluster.execution_list)
+        # print(self.db.preloaded_queue)
+        # print(self.cluster.makespan)
+        # print(self.cluster.socket_conf)
+        # print(self.db.heatmap)
+        # print({name:list(self.cluster.hosts[name].jobs.keys()) for name in self.cluster.hosts.keys()})
 
-        # Recalculate the remaining time of jobs
-        for job in self.cluster.execution_list:
-            self.calculate_job_rem_time(job)
+        min_rem_time, (execution_list, jobs_to_clean) = next_sim_state(
+            self.cluster.execution_list,
+            self.db.preloaded_queue,
+            self.cluster.makespan,
+            self.cluster.socket_conf,
+            self.db.heatmap,
+            {name:list(self.cluster.hosts[name].jobs.keys()) for name in self.cluster.hosts.keys()}
+        )
+        
+        self.cluster.makespan += min_rem_time
+        
+        self.cluster.execution_list = execution_list
+        
+        for job in jobs_to_clean:
+            self.clean_job_from_hosts(job)
+            
+        return
+        
 
         # Find the minimum remaining execution time of the jobs currently executing
         min_rem_time = inf
@@ -366,3 +392,4 @@ class ComputeEngine:
         self.goto_next_sim_state()
         
         self.debug_logger.debug("End of a simulation step")
+        
