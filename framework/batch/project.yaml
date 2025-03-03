@@ -8,12 +8,12 @@ workloads:
     # loads-machine: "aris.compute"
     loads-suite: "NAS"
     generator:
-      type: "Random Generator"
-      arg: 1000
+      type: "List Generator"
+      arg: "./csvs/workload_0_easy_scheduler.csv"
       # type: "SWF Generator"
       # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
-      nodes: 42000
+      nodes: 4200
       socket-conf: [16,16]
     repeat: 1
 schedulers:
