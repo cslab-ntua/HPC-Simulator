@@ -14,8 +14,13 @@ sys.path.append(os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..")
 ))
 
+from batch.batch_utils import BatchCreator
 from common.utils import define_logger, handler_and_formatter, envvar_bool_val, profiling_ctx
 logger = define_logger()
+
+from realsim.database import Database
+from realsim.cluster.cluster import Cluster
+from realsim.compengine import ComputeEngine
 
 def __get_gantt_representation(self):
     res = self.__class__.get_gantt_representation(self) # Have to call this way to avoid infinite recursion
@@ -59,14 +64,29 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
     sock.connect((server_ipaddr, server_port))
     sock.setblocking(False)
 
-    idx, database, cluster, scheduler, evt_logger, compengine, actions, extra_features = sim_batch
+    sim_id, workload, scheduler, evt_logger, actions, extra_features = sim_batch
+    
+    lm, heatmap, gen_type, gen_arg, distr_type, distr_arg, nodes, socket_conf = workload
+    
+    jobs_workload = BatchCreator.generate_workload(lm, gen_type, gen_arg, distr_type, distr_arg)
+    
+    # Create the database of the cluster
+    database = Database(jobs_workload, heatmap)
+    database.setup()
+    
+    # Create the cluster
+    cluster = Cluster(nodes, socket_conf)
+    
+    # Create and setup compengine
+    compengine = ComputeEngine(database, cluster, scheduler, evt_logger)
+    compengine.setup_preloaded_jobs()
 
     comp_logger = logger.getChild("compengine")
     if envvar_bool_val("ELiSE_DEBUG"):
         handler_and_formatter(comp_logger)
     compengine.debug_logger = comp_logger
 
-    logger.debug(f"Setting up the cluster, scheduler and event logger, (id {idx})")
+    logger.debug(f"Setting up the cluster, scheduler and event logger, (id {sim_id})")
 
     cluster.setup()
     scheduler.setup()
@@ -78,7 +98,7 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
     # Start timer
     start_time = time()
     
-    with profiling_ctx(idx, scheduler.name, logger):
+    with profiling_ctx(sim_id, scheduler.name, logger):
 
         while database.preloaded_queue != [] or cluster.waiting_queue != [] or cluster.execution_list != []:
             try:
@@ -87,7 +107,7 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
                 logger.exception("An error occurred during the execution of the simulation")
 
             progress_perc = 100 * (1 - (len(database.preloaded_queue) + len(cluster.waiting_queue) + len(cluster.execution_list)) / total_jobs)
-            msg_to_send = pad_message(json.dumps( {"id": idx, "progress_perc": progress_perc} ).encode())
+            msg_to_send = pad_message(json.dumps( {"id": sim_id, "progress_perc": progress_perc} ).encode())
             try:
                 sock.send(msg_to_send)
             except:
@@ -102,7 +122,7 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
     sim_time = cluster.makespan
 
     # Send the times back to the progress server
-    msg_to_send = pad_message(json.dumps( {"id": idx, "scheduler": scheduler.name, "real_time": real_time, "sim_time": sim_time} ).encode())
+    msg_to_send = pad_message(json.dumps( {"id": sim_id, "scheduler": scheduler.name, "real_time": real_time, "sim_time": sim_time} ).encode())
     sock.send(msg_to_send)
 
     # Close communication socket
@@ -111,7 +131,7 @@ def single_simulation(sim_batch, server_ipaddr, server_port):
     # If there are actions provided for this rank
     if actions != []:
         # Overwrite event logger's interface
-        extra_features.append(("sim_id", idx))
+        extra_features.append(("sim_id", sim_id))
         patch(evt_logger, extra_features)
 
         # Perform actions upon completion

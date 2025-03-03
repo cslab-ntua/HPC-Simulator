@@ -122,6 +122,130 @@ class BatchCreator:
 
         return workloads_num * (1 + len(self.__project_schedulers["others"]))
 
+    @staticmethod
+    def create_load_manager(workload):
+        lm = LoadManager(machine=workload["loads-machine"],
+                         suite=workload["loads-suite"])
+        # A LoadManager instance can be created using
+        if "path" in workload:
+            # A path to a directory with the real logs
+            path = workload["path"]
+            lm.init_loads(runs_dir=path)
+        elif "load-manager" in workload:
+            # A pickled LoadManager instance (or json WIP)
+            with open(workload["load-manager"], "rb") as fd:
+                lm = pickle_load(fd)
+        elif "db" in workload:
+            # A mongo database url
+            lm.import_from_db(host=workload["db"], dbname="storehouse")
+        else:
+            raise RuntimeError("Couldn't provide a way to create a LoadManager")
+        
+        return lm
+
+    @staticmethod
+    def create_heatmap(workload, lm):
+        # Create a heatmap from the LoadManager instance or use a user-defined
+        # if a path is provided
+        if "heatmap" in workload:
+            with open(workload["heatmap"], "r") as fd:
+                heatmap = json_loads(fd.read())
+        else:
+            heatmap = lm.export_heatmap()
+        
+        return heatmap
+
+    @staticmethod
+    def generate_workload(lm: LoadManager, gen_type: str, gen_arg, distr_type=None, distr_arg=None):
+
+        # Ready to use generators implementing the AbstractGenerator interface
+        __impl_generators = {
+            RandomGenerator.name: RandomGenerator,
+            RandomFromListGenerator.name: RandomFromListGenerator,
+            KeysDictGenerator.name: KeysDictGenerator,
+            KeysListGenerator.name: KeysListGenerator,
+            ShuffleKeysListGenerator.name: ShuffleKeysListGenerator,
+            SWFGenerator.name: SWFGenerator
+        }
+
+        # Ready to use schedulers implementing the Distribution interface
+        __impl_distributions = {
+            "Constant": ConstantDistribution,
+            "Random": RandomDistribution,
+            "Poisson": PoissonDistribution
+        }
+        
+        if gen_type in __impl_generators:
+            try:
+                gen_cls = __impl_generators[gen_type]
+            except:
+                raise RuntimeError(f"The name {gen_type} of the generator provided does not exist")
+        # If a python file is provided for the generator
+        elif os.path.exists(gen_type) and ".py" in gen_type:
+            # Import generator module
+            spec_name = import_module(gen_type)
+            gen_mod = sys.modules[spec_name]
+            # Get the generator class from the module
+            classes = inspect.getmembers(gen_mod, inspect.isclass)
+            # It must be a concrete class implementing the AbstractGenerator interface
+            classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], AbstractGenerator), classes))
+
+            # If there are multiple then inform the user that the first will be used
+            if len(classes) > 1:
+                print(f"Multiple generator definitions were found. Using the first definition: {classes[0][0]}")
+
+            _, gen_cls = classes[0]
+
+        else:
+            raise RuntimeError(f"The name {gen_type} of the generator provided does not exist")
+
+        # Create instance of generator
+        gen_inst = gen_cls(load_manager=lm)
+        logger.debug(f"Got the generator: {gen_inst.name}")
+
+        # Generate the workload
+        if gen_type in ["List Generator","Shuffle List Generator"]:
+            with open(gen_arg, 'r') as _f:
+                gen_data = _f.read()
+            gen_workload = gen_inst.generate_jobs_set(gen_data)
+
+        elif gen_type in ["Random From List Generator"]:
+            with open(gen_arg[1], 'r') as _f:
+                gen_data = _f.read()
+            gen_workload = gen_inst.generate_jobs_set([gen_arg[0], gen_data])
+
+        else:
+            gen_workload = gen_inst.generate_jobs_set(gen_arg)
+        
+        # Check if a transformer distribution is provided by the user
+        if distr_type:
+            if distr_type in __impl_distributions:
+                try:
+                    distr_cls = __impl_distributions[distr_type]
+                except:
+                    raise RuntimeError(f"Distribution of type {distr_type} does not exist")
+        
+            # If a path is provided for the distribution transformer
+            elif os.path.exists(distr_type) and ".py" in distr_type:
+                spec_name = import_module(distr_type)
+                distr_mod = sys.modules[spec_name]
+                classes = inspect.getmembers(distr_mod, inspect.isclass)
+                classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], IDistribution), classes))
+                # If there are multiple then inform the user that the first will be used
+                if len(classes) > 1:
+                    print(f"Multiple distribution definitions were found. Using the first definition: {classes[0][0]}")
+
+                _, distr_cls = classes[0]
+            else:
+                raise RuntimeError(f"Distribution of type {distr_type} does not exist")
+
+            distr_inst = distr_cls()
+            distr_inst.apply_distribution(gen_workload, time_step=distr_arg)
+
+            logger.debug(f"A distribution was applied to the workload: {distr_inst.name}")
+        
+        return gen_workload
+
     def process_workloads(self) -> None:
 
         logger.debug("Begin processing the workloads")
@@ -132,129 +256,35 @@ class BatchCreator:
         for workload in self.__project_workloads:
         
             # Create a LoadManager based on the options given
-            lm = LoadManager(machine=workload["loads-machine"],
-                             suite=workload["loads-suite"])
-            # A LoadManager instance can be created using
-            if "path" in workload:
-                # A path to a directory with the real logs
-                path = workload["path"]
-                lm.init_loads(runs_dir=path)
-            elif "load-manager" in workload:
-                # A pickled LoadManager instance (or json WIP)
-                with open(workload["load-manager"], "rb") as fd:
-                    lm = pickle_load(fd)
-            elif "db" in workload:
-                # A mongo database url
-                lm.import_from_db(host=workload["db"], dbname="storehouse")
-            else:
-                raise RuntimeError("Couldn't provide a way to create a LoadManager")
+            lm = BatchCreator.create_load_manager(workload)
+            logger.debug(f"Finished importing the loads in the LoadManager")
 
-            # Create a heatmap from the LoadManager instance or use a user-defined
-            # if a path is provided
-            if "heatmap" in workload:
-                with open(workload["heatmap"], "r") as fd:
-                    heatmap = json_loads(fd.read())
-            else:
-                heatmap = lm.export_heatmap()
-
+            # Create a heatmap
+            heatmap = BatchCreator.create_heatmap(workload, lm)
             logger.debug(f"Finished calculating the heatmap: {heatmap}")
 
             # Create the workload using the generator provided
             if "generator" in workload:
+                # Generator
                 generator = workload["generator"]
                 gen_type = generator["type"]
                 gen_arg = generator["arg"]
 
-                # If a python file is provided for the generator
-                if os.path.exists(gen_type) and ".py" in gen_type:
-                    # Import generator module
-                    spec_name = import_module(gen_type)
-                    gen_mod = sys.modules[spec_name]
-                    # Get the generator class from the module
-                    classes = inspect.getmembers(gen_mod, inspect.isclass)
-                    # It must be a concrete class implementing the AbstractGenerator interface
-                    classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], AbstractGenerator), classes))
+                # Distribution
+                distr_type = None
+                distr_arg = None
+                if "distribution" in workload:
+                    distribution = generator["distribution"]
+                    distr_type = distribution["type"]
+                    distr_arg = distribution["arg"]
+                repeat = int(workload["repeat"]) if workload["repeat"] else 1
 
-                    # If there are multiple then inform the user that the first will be used
-                    if len(classes) > 1:
-                        print(f"Multiple generator definitions were found. Using the first definition: {classes[0][0]}")
-
-                    _, gen_cls = classes[0]
-
-                    # Export module for MPI procs
-                    self.mods_export.append(gen_type)
-                else:
-                    try:
-                        gen_cls = self.__impl_generators[gen_type]
-                    except:
-                        raise RuntimeError(f"The name {gen_type} of the generator provided does not exist")
-
-                # Create instance of generator
-                gen_inst = gen_cls(load_manager=lm)
-                # gen_inst = gen_cls()
-            
-                logger.debug(f"Got the generator: {gen_inst.name}")
-
-                if "repeat" in workload:
-                    repeat = int(workload["repeat"])
-                else:
-                    repeat = 1
-
+                # Cluster
+                nodes = int(workload["cluster"]["nodes"])
+                socket_conf = tuple(workload["cluster"]["socket-conf"])
+                
                 for _ in range(repeat):
-
-                    # Generate the workload
-                    if gen_type in ["List Generator","Shuffle List Generator"]:
-                        with open(gen_arg, 'r') as _f:
-                            gen_data = _f.read()
-                        gen_workload = gen_inst.generate_jobs_set(gen_data)
-
-                    elif gen_type in ["Random From List Generator"]:
-                        with open(gen_arg[1], 'r') as _f:
-                            gen_data = _f.read()
-                        gen_workload = gen_inst.generate_jobs_set([gen_arg[0], gen_data])
-
-                    else:
-                        gen_workload = gen_inst.generate_jobs_set(gen_arg)
-
-
-                    logger.debug(f"Finished generating the workload")
-
-                    # Check if a transformer distribution is provided by the user
-                    if "distribution" in generator:
-                    
-                        distribution = generator["distribution"]
-                        distr_type = distribution["type"]
-                        distr_arg = distribution["arg"]
-
-                        # If a path is provided for the distribution transformer
-                        if os.path.exists(distr_type) and ".py" in distr_type:
-                            spec_name = import_module(distr_type)
-                            distr_mod = sys.modules[spec_name]
-                            classes = inspect.getmembers(distr_mod, inspect.isclass)
-                            classes = list(filter(lambda it: not inspect.isabstract(it[1]) and issubclass(it[1], IDistribution), classes))
-                            # If there are multiple then inform the user that the first will be used
-                            if len(classes) > 1:
-                                print(f"Multiple distribution definitions were found. Using the first definition: {classes[0][0]}")
-
-                            _, distr_cls = classes[0]
-                            # Export module for MPI procs
-                            self.mods_export.append(distr_type)
-                        else:
-                            try:
-                                distr_cls = self.__impl_distributions[distr_type]
-                            except:
-                                raise RuntimeError(f"Distribution of type {distr_type} does not exist")
-
-                        distr_inst = distr_cls()
-                        distr_inst.apply_distribution(gen_workload, time_step=distr_arg)
-
-                        logger.debug(f"A distribution was applied to the workload: {distr_inst.name}")
-
-
-                    nodes = int(workload["cluster"]["nodes"])
-                    socket_conf = tuple(workload["cluster"]["socket-conf"])
-                    self.__workloads.append((gen_workload, heatmap, nodes, socket_conf))
-
+                    self.__workloads.append((lm, heatmap, gen_type, gen_arg, distr_type, distr_arg, nodes, socket_conf))
             else:
                 raise RuntimeError("A generator was not provided")
 
@@ -370,15 +400,15 @@ class BatchCreator:
 
         # Create the ranks
         self.ranks = list()
-        for jdx, [workload, heatmap, nodes, socket_conf] in enumerate(self.__workloads):
+        for jdx, workload in enumerate(self.__workloads):
             for sched_cls in self.__schedulers:
 
                 # Create a database instance
-                database = Database(workload, heatmap)
-                database.setup()
+                # database = Database(workload, heatmap)
+                # database.setup()
 
                 # Create a cluster instance
-                cluster = Cluster(nodes, socket_conf)
+                # cluster = Cluster(nodes, socket_conf)
 
                 # Create a scheduler instance
                 scheduler = sched_cls()
@@ -391,12 +421,14 @@ class BatchCreator:
                 logger = Logger(debug=False)
 
                 # Create a compute engine instance
-                compengine = ComputeEngine(database, cluster, scheduler, logger)
-                compengine.setup_preloaded_jobs()
+                # compengine = ComputeEngine(database, cluster, scheduler, logger)
+                # compengine.setup_preloaded_jobs()
 
                 # Set actions for this simulation
                 actions = self.__actions[jdx][sched_cls.name]
 
-                self.ranks.append((sim_id, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
+                # self.ranks.append((sim_id, database, cluster, scheduler, logger, compengine, actions, self.__extra_features))
+                
+                self.ranks.append((sim_id, workload, scheduler, logger, actions, self.__extra_features))
 
                 sim_id += 1
