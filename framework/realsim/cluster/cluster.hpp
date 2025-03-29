@@ -1,12 +1,15 @@
 #ifndef HPP_CLUSTER
 #define HPP_CLUSTER
 
-#include <map>
 #include <memory>
-#include <string>
-#include <vector>
+
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/unordered_map.h>
+#include <nanobind/stl/vector.h>
 
 #include "../jobs/jobs.hpp"
+#include "host.hpp"
 
 class Cluster {
     public:
@@ -17,7 +20,7 @@ class Cluster {
         std::vector<int> half_socket_allocation;
         std::vector<int> quarter_socket_allocation;
         
-        std::map<std::string, Host> hosts;
+        std::unordered_map<std::string, Host> hosts;
         
         long long int free_cores;
         long long int total_cores;
@@ -31,10 +34,11 @@ class Cluster {
         long long int id_counter;
         double makespan;
 
-        void setup() const;
+        Cluster(long long int, SOCKET_CONF);
+        void setup();
         long long int get_idle_cores() const;
         long long int get_used_cores() const;
-        std::vector<std::vector<std::string>> get_hostname_procs();
+        // std::vector<std::vector<std::string>> get_hostname_procs();
         
 
 
