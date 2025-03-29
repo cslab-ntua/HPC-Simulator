@@ -4,16 +4,16 @@ workloads:
   # The nancy workload(s)
   - &default_workload
     db: "mongodb+srv://cslab:bQt5TU6zQsu_LZ@storehouse.om2d9c0.mongodb.net"
-    loads-machine: "marconi"
+    loads-machine: "remake-g5k.nancy.grvingt"
     # loads-machine: "aris.compute"
     loads-suite: "NAS"
     generator:
-      type: "List Generator"
-      arg: "./csvs/workload_0_easy_scheduler.csv"
+      type: "Random Generator"
+      arg: 10000
       # type: "SWF Generator"
       # arg: "/home/stratos/Downloads/SDSC-SP2-1998-4.2-cln.swf"
     cluster:
-      nodes: 4200
+      nodes: 8
       socket-conf: [16,16]
     repeat: 1
 schedulers:

@@ -19,6 +19,7 @@ execute_process(
 find_package(nanobind CONFIG REQUIRED)
 
 nanobind_add_module(jobs jobs/jobs.cpp jobs/jobs.hpp)
+nanobind_add_module(host cluster/host.cpp)
 
 find_package(OpenMP REQUIRED)
 
