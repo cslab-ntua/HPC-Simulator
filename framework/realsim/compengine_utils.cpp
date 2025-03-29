@@ -9,6 +9,7 @@
 #include <omp.h>
 
 #include "jobs/jobs.hpp"
+#include "cluster/cluster.hpp"
 
 namespace nb = nanobind;
 
@@ -18,6 +19,18 @@ using JOBSLIST = std::vector<Job>;
 using HEATMAP = std::unordered_map<std::string, std::unordered_map<std::string, double>>;
 using JOBSHOSTS = std::unordered_map<std::string, std::vector<std::string>>;
 
+void clean_job_from_hosts(Job& job, Cluster& cluster) {
+
+    // Record the finish state of the job
+    job.finish_time = cluster.makespan;
+    job.current_state = JobState::FINISHED;
+    
+    // Clean job and return resources to allocated hosts
+    for (const auto& hostname : job.assigned_hosts) {
+        cluster.hosts.at(hostname).free_job(job.get_signature());
+    }
+
+}
 
 void calculate_rem_time(Job& job, const SOCKET_CONF& cluster_socket_conf, const HEATMAP& heatmap, const JOBSHOSTS& jobs_hosts) {
     
@@ -53,47 +66,35 @@ void calculate_rem_time(Job& job, const SOCKET_CONF& cluster_socket_conf, const 
 }
 
 std::pair<double, std::pair<JOBSLIST, JOBSLIST>> next_sim_state(
-    JOBSLIST& exec_jobs, 
     const JOBSLIST& preload_jobs, 
-    double makespan, 
-    const SOCKET_CONF& cluster_socket_conf, 
     const HEATMAP& heatmap, 
+    Cluster& cluster,
     const JOBSHOSTS& jobs_hosts) 
 {
+    // nb::gil_scoped_release release;
 
     int i {};
-
-    #pragma omp parallel for private(i) shared(cluster_socket_conf, heatmap, jobs_hosts)
-    for (i = 0; i < exec_jobs.size(); ++i)
-        calculate_rem_time(exec_jobs[i], cluster_socket_conf, heatmap, jobs_hosts);
-    
-
+    JOBSLIST execution_list {};
+    JOBSLIST jobs_to_clean {};
     double min_rem_time {std::numeric_limits<double>::max()};
-    #pragma omp parallel shared(min_rem_time)
+
+    #pragma omp parallel shared(heatmap, jobs_hosts, min_rem_time)
     {
+        #pragma omp for
+        for (i = 0; i < cluster.execution_list.size(); ++i)
+            calculate_rem_time(*cluster.execution_list[i], cluster.socket_conf, heatmap, jobs_hosts);
+
         double local_min {std::numeric_limits<double>::max()};
         
         #pragma omp for
-        for (int i = 0; i < exec_jobs.size(); ++i) {
-            if (exec_jobs[i].remaining_time < local_min)
-                local_min = exec_jobs[i].remaining_time;
+        for (int i = 0; i < cluster.execution_list.size(); ++i) {
+            if ((*cluster.execution_list[i]).remaining_time < local_min)
+                local_min = (*cluster.execution_list[i]).remaining_time;
         }
         
-        #pragma omp critical
-        {
-            if (local_min < min_rem_time) {
-                min_rem_time = local_min;
-            }
-        }
-    }
-    
-    #pragma omp parallel
-    {
-        double local_min {std::numeric_limits<double>::max()};
-
         #pragma omp for
         for (int i = 0; i < preload_jobs.size(); ++i) {
-            double showup_time {preload_jobs[i].submit_time - makespan};
+            double showup_time {preload_jobs[i].submit_time - cluster.makespan};
             if (showup_time > 0 && showup_time < local_min)
                 local_min = showup_time;
         }
@@ -104,23 +105,21 @@ std::pair<double, std::pair<JOBSLIST, JOBSLIST>> next_sim_state(
                 min_rem_time = local_min;
             }
         }
-    }
+        
+        // All threads should take view the same min_rem_time value
+        #pragma omp barrier
 
-    JOBSLIST execution_list {};
-    JOBSLIST jobs_to_clean {};
-    #pragma omp parallel 
-    {
         JOBSLIST _exec_list {};
         JOBSLIST _clean_list {};
         
         #pragma omp for
-        for (int i = 0; i < exec_jobs.size(); ++i) {
-            exec_jobs[i].remaining_time -= min_rem_time;
-            if (exec_jobs[i].remaining_time <= 0) {
-                _clean_list.push_back(exec_jobs[i]);
+        for (int i = 0; i < cluster.execution_list.size(); ++i) {
+            (*cluster.execution_list[i]).remaining_time -= min_rem_time;
+            if ((*cluster.execution_list[i]).remaining_time <= 0) {
+                _clean_list.push_back(*cluster.execution_list[i]);
             } 
             else {
-                _exec_list.push_back(exec_jobs[i]);
+                _exec_list.push_back(*cluster.execution_list[i]);
             }
         }
         
@@ -129,27 +128,22 @@ std::pair<double, std::pair<JOBSLIST, JOBSLIST>> next_sim_state(
             execution_list.insert(execution_list.end(), _exec_list.begin(), _exec_list.end());
             jobs_to_clean.insert(jobs_to_clean.end(), _clean_list.begin(), _clean_list.end());
         }
+        
+        #pragma omp for
+        for (auto& job : jobs_to_clean)
+            clean_job_from_hosts(job, cluster);
+        
     }
-
-    // exec_jobs = std::move(execution_list);
-
+    
     std::pair<JOBSLIST, JOBSLIST> res_lists {execution_list, jobs_to_clean};
     std::pair<double, std::pair<JOBSLIST, JOBSLIST>> result {min_rem_time, res_lists};
     return result;
 }
 
-void calculate_rem_times(JOBSLIST& jobs, const SOCKET_CONF& cluster_socket_conf, const HEATMAP& heatmap, const JOBSHOSTS& jobs_hosts) {
-    #pragma omp parallel for shared(cluster_socket_conf, heatmap, jobs_hosts)
-    for (int i = 0; i < jobs.size(); ++i)
-        calculate_rem_time(jobs[i], cluster_socket_conf, heatmap, jobs_hosts);
-    
-}
 
 NB_MODULE(compengine_utils, m){
     nb::bind_vector<SOCKET_CONF>(m, "SOCKET_CONF");
     nb::bind_vector<JOBSLIST>(m, "JOBSLIST");
     // nb::bind_map<JOBSHOSTS>(m, "JOBSHOSTS");
-    m.def("calculate_rem_time", &calculate_rem_time);
-    m.def("calculate_rem_times", &calculate_rem_times);
-    m.def("next_sim_state", &next_sim_state);
+    m.def("next_sim_state", &next_sim_state, nb::call_guard<nb::gil_scoped_release>());
 }

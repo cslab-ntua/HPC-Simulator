@@ -296,67 +296,6 @@ class ComputeEngine:
             self.clean_job_from_hosts(job)
             
         return
-        
-
-        # Find the minimum remaining execution time of the jobs currently executing
-        min_rem_time = inf
-        for job in self.cluster.execution_list:
-            if job.remaining_time < min_rem_time:
-                min_rem_time = job.remaining_time
-
-        # Find the minimum remaining time for a job to show up in the waiting
-        # queue of the cluster
-        for job in self.db.preloaded_queue:
-            showup_time = job.submit_time - self.cluster.makespan
-            if showup_time > 0 and showup_time < min_rem_time:
-                min_rem_time = showup_time
-        
-        if min_rem_time <= 0:
-            self.debug_logger.error(f"The minimum next simulation step time is {min_rem_time} <=0")
-        else:
-            self.debug_logger.debug(f"The minimum next simulation step time is {min_rem_time} seconds")
-        # Guard the execution
-        assert min_rem_time > 0
-
-        if min_rem_time == inf and (self.cluster.waiting_queue != [] or self.db.preloaded_queue != []):
-            print()
-            print(self.cluster.get_idle_cores())
-            print("PREL", self.db.preloaded_queue)
-            print("WAIT", self.cluster.waiting_queue)
-            print("EXEC", self.cluster.execution_list)
-            print()
-            self.debug_logger.error(f"There are jobs in the preloaded queue or waiting queue that have not being deployed for execution")
-            raise RuntimeError
-
-        # Forward the time of the execution
-        self.cluster.makespan += min_rem_time
-        self.debug_logger.debug(f"The new makespan is {self.cluster.makespan}")
-
-        # Log the event
-        self.logger.log(evts.CompEngineNextTimeStep, msg=f"{min_rem_time}")
-
-        # "Execute" the jobs
-        execution_list: list[Job] = list()
-
-        #INFO: consider multithreading the deletion of jobs
-        #WARN: pay attention to how the jobs are deleted from the host. 
-        # Dictionary access/deletion might not be thread safe
-
-        # Remove/clean any jobs that finished execution
-        for job in self.cluster.execution_list:
-
-            # "Execute" job
-            job.remaining_time -= min_rem_time
-
-            if job.remaining_time == 0:
-                self.clean_job_from_hosts(job)
-            else:
-                execution_list.append(job)
-
-        # Assign new execution list to cluster
-        self.cluster.execution_list = execution_list
-
-        self.debug_logger.debug("Finished executing the jobs in the execution list")
 
     def sim_step(self) -> None:
 
@@ -381,9 +320,9 @@ class ComputeEngine:
                 deployed |= self.scheduler.backfill()
 
         # If deployed restart scheduling procedure
-        if deployed:
-            self.debug_logger.debug("End of a simulation step")
-            return
+        # if deployed:
+        #     self.debug_logger.debug("End of a simulation step")
+        #     return
 
         # If the scheduler didn't deploy jobs then
         # 1. the cluster's execution list is full
