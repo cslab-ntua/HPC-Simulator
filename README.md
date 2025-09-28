@@ -1,3 +1,6 @@
+DEPRECATED: It will soon be archived or deleted
+USE: https://github.com/cslab-ntua/elise instead
+
 ![HPC Simulator logo](./assets/HPCSim.png)
 
 ## Setting up the environment using conda
